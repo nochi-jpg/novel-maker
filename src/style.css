@@ -336,3 +336,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .map-scroll::-webkit-scrollbar-thumb{background:var(--brand);border-radius:8px;border:3px solid #dfe6f4}
 .map-scroll::-webkit-scrollbar-thumb:hover{background:var(--pri)}
 .map-inner{position:relative}
+
+.iss-list{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:hidden}
+.iss-row{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border-radius:10px;padding:10px 14px}
+.iss-ic .ic{width:28px;height:28px}
+.iss-name{font-size:16px;font-weight:bold;color:var(--sub)}
+.iss-msg{font-size:18px;line-height:1.5;color:var(--tx)}

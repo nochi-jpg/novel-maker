@@ -50,7 +50,6 @@ function analyze(w) {
         if (!ok(r.to)) add(b.id, 'stuck', `条件${i + 1}の行き先が決まっていません`);
         if (!r.groups.some(g => g.length)) add(b.id, 'empty', `条件${i + 1}の中身がありません`);
       });
-      if (!ok(e.else)) add(b.id, 'stuck', '「どれにも当てはまらないとき」の行き先がありません');
     }
   }
   // ---- ルートを全部たどる ----
@@ -85,6 +84,12 @@ function analyze(w) {
       go(hit >= 0 ? e.rules[hit].to : e.else);
     }
   }
+  const elseUsed = {};
+  for (const b of Object.values(blocks)) if (b.end.type === 'cond') {
+    const used = limited || (fired[b.id] && fired[b.id].has(-1));
+    elseUsed[b.id] = !!used;
+    if (used && !(b.end.else && blocks[b.end.else])) add(b.id, 'stuck', 'どの条件にも当てはまらないルートがあります。「どれにも当てはまらない」の行き先を決めてください');
+  }
   if (!limited) {
     for (const b of Object.values(blocks)) {
       if (!reach.has(b.id)) { add(b.id, 'unreach', 'どのルートからもたどり着けません'); continue; }
@@ -103,5 +108,5 @@ function analyze(w) {
     for (const bid of loopB) add(bid, 'loop', 'ここから先、おわりにたどり着けないルートがあります（ぐるぐる回ります）');
   }
   let count = 0; for (const k in issues) count += issues[k].length;
-  return { issues, count, limited, reach };
+  return { issues, count, limited, reach, elseUsed };
 }

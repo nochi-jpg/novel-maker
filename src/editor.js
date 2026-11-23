@@ -163,7 +163,7 @@ function blockCard(b, chk) {
   } },
     h('div', { class: 'bc-top' }, h('div', { class: 'bc-l' }, blockLabel(w, b)),
       h('div', { class: 'bc-iss' }, types.slice(0, 4).map(t => h('button', { class: 'iss', style: `color:${ISSUE[t].color === '#adb5bd' ? '#868e96' : ISSUE[t].color}`, title: ISSUE[t].name, onclick: e => {
-        e.stopPropagation(); guide(ISSUE[t].name + '：' + iss.filter(x => x.type === t).map(x => x.msg).join('／'), true);
+        e.stopPropagation(); showIssues(b);
       } }, ic(ISSUE[t].icon))))),
     h('div', { class: 'bc-txt' }, b.text.trim() ? b.text.replace(/\n+/g, ' ').slice(0, 40) : '（まだ文章がありません）'),
     h('div', { class: 'bc-end ' + ec }, ic(ei), h('span', null, et)));
@@ -191,6 +191,22 @@ async function removeBlock(b) {
   }
   E.bid = startBlock(w).id; markDirty(true);
 }
+/* ブロックの問題を、全文で一覧にする */
+function showIssues(b) {
+  const w = E.w, iss = (E.chk && E.chk.issues[b.id]) || [], per = 4, pages = Math.max(1, Math.ceil(iss.length / per));
+  let m, pg = 0;
+  const list = h('div', { class: 'iss-list' }), nav = h('div', { class: 'dlg-btns' });
+  const draw = () => {
+    list.innerHTML = ''; nav.innerHTML = '';
+    iss.slice(pg * per, pg * per + per).forEach(x => list.appendChild(h('div', { class: 'iss-row' },
+      h('span', { class: 'iss-ic', style: `color:${ISSUE[x.type].color === '#adb5bd' ? '#868e96' : ISSUE[x.type].color}` }, ic(ISSUE[x.type].icon)),
+      h('div', null, h('div', { class: 'iss-name' }, ISSUE[x.type].name), h('div', { class: 'iss-msg' }, x.msg)))));
+    if (pages > 1) nav.append(pg > 0 ? btn('prev', '前へ', () => { pg--; draw(); }) : btnOff('prev', '前へ', '最初のページです'), h('div', { class: 'pg-n' }, `${pg + 1} / ${pages}`), pg < pages - 1 ? btn('next', '次へ', () => { pg++; draw(); }) : btnOff('next', '次へ', '最後のページです'));
+    nav.appendChild(btn('check', 'わかった', () => closeModal(m), 'pri'));
+  };
+  draw();
+  m = openModal(h('div', { class: 'dlg', style: 'width:760px' }, h('div', { class: 'dlg-title' }, `ブロック ${blockLabel(w, b)} の問題（${iss.length}こ）`), list, nav), { close: true });
+}
 function targetBtn(cur, set, wdt) {
   const w = E.w, b = cur && w.blocks[cur];
   const bt = h('button', { class: 'btn sm tgt', style: `width:${wdt}px`, onclick: () => { E.pick = { from: E.bid, set }; E.guideMsg = null; editorRefresh(); } },
@@ -204,7 +220,8 @@ function blockPanel() {
   pin(p, h('div', { class: 'p-h' }, 'ブロック ' + blockLabel(w, b) + ' の設定'), 14, 10, 360, 32);
   const iss = (E.chk && E.chk.issues[b.id]) || [];
   pin(p, h('div', { class: 'bp-iss' + (iss.length ? ' bad' : '') }, ic(iss.length ? ISSUE[iss[0].type].icon : 'check'),
-    h('span', { style: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, iss.length ? iss[0].msg + (iss.length > 1 ? `（ほか${iss.length - 1}こ）` : '') : '問題はありません')), 14, 44, 360, 22);
+    h('span', { style: 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, iss.length ? `問題が ${iss.length} こあります` : '問題はありません'),
+    iss.length ? btn('info', 'くわしく見る', () => showIssues(b), 'xs') : null), 14, 40, 360, 30);
   pin(p, btn('text', '文章を書く', () => goStep('text'), 'sm'), 14, 74, 176, 42);
   pin(p, btn('wand', '絵と音をつける', () => goStep('fx'), 'sm'), 198, 74, 176, 42);
   pin(p, h('div', { class: 'p-cap' }, '読みおわったら どうする？'), 14, 128, 360, 24);
@@ -239,7 +256,9 @@ function blockPanel() {
     const ay = 272 + e.rules.length * 56;
     pin(p, e.rules.length < 3 ? btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'sm')
       : btnOff('plus', '条件をふやす', '条件は3つまでです', 'sm'), 14, ay, 360, 40);
+    const need = !E.chk || E.chk.elseUsed[b.id] !== false;
     pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), targetBtn(e.else, id => { e.else = id; }, 146)), 14, ay + 48, 360, 44);
+    if (!need && !e.else && e.rules.length < 3) pin(p, h('div', { class: 'hint', style: 'font-size:14px;color:var(--ok);font-weight:bold' }, 'どのルートも条件のどれかに当てはまるので、なくてもOK'), 14, ay + 94, 360, 22);
   }
   if (e.type === 'end') {
     const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
