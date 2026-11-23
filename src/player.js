@@ -118,20 +118,37 @@ function setStageW(W) { STAGE.w = W; fitStage(); }
 async function showWorkTitle() {
   stopBGM(); clearPanel(); clearWeather();
   const w = P.w, bm = await dbGet('saves', w.id + ':bm');
-  const img = mediaSrc(w.titleImg);
   const okBm = bm && w.blocks[bm.b];
-  const p = h('div', { class: 'ppanel ptitle' },
-    img ? h('img', { class: 'ptitle-img', src: img }) : null,
-    h('div', { class: 'ptitle-box' },
-      h('div', { class: 'ptitle-t' }, w.title),
-      w.author ? h('div', { class: 'ptitle-a' }, 'さく：' + w.author) : null,
-      h('div', { class: 'ptitle-btns' },
-        btn('play', 'はじめから', () => { clearPanel(); restart(); }),
-        okBm ? btn('book', 'つづきから', () => { clearPanel(); loadState(bm); }) : btnOff('book', 'つづきから', 'まだ、しおりがありません'),
-        btn('load', 'ロード', () => saveLoadPanel('load')),
-        endListOn(w) ? btn('flag', 'エンディング', () => openEndList()) : null)),
-    P.view ? null : btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
+  const p = titleDom(w, [
+    btn('play', 'はじめから', () => { clearPanel(); restart(); }),
+    okBm ? btn('book', 'つづきから', () => { clearPanel(); loadState(bm); }) : btnOff('book', 'つづきから', 'まだ、しおりがありません'),
+    btn('load', 'ロード', () => saveLoadPanel('load')),
+    endListOn(w) ? btn('flag', 'エンディング', () => openEndList()) : null]);
+  p.append(P.view ? null : btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
   showPanel(p);
+}
+/* タイトル画面の見た目（読む画面と、作る画面の見本で共通） */
+function titleTheme(w) { return w.tscr && w.tscr.theme ? Object.assign({}, w.theme, w.tscr.theme) : w.theme; }
+function titleDom(w, buttons) {
+  const t = w.tscr, W = stageWOf(w);
+  const p = h('div', { class: 'ppanel ptitle bp-' + t.bpos });
+  p.style.width = W + 'px';
+  themeVars(p, titleTheme(w));
+  const bg = mediaSrc(t.bg);
+  if (bg) p.appendChild(h('img', { class: 'ptitle-img', src: bg, draggable: 'false' }));
+  for (let s = 0; s < 3; s++) {
+    const c = t.ch[s], src = c && mediaSrc(c.m);
+    if (src) p.appendChild(h('img', { class: 'chimg', src, draggable: 'false', style: `left:${CH_X[s]}%;height:${86 * (c.s || 1)}%;bottom:${(c.y || 0) * 30}px` }));
+  }
+  const side = t.bpos === 'right' ? 'left' : t.bpos === 'left' ? 'right' : 'center';
+  if (t.showT || (t.showA && w.author)) {
+    const box = h('div', { class: `ptitle-box tp-${t.tpos} side-${side}` },
+      t.showT ? h('div', { class: 'ptitle-t' }, w.title) : null,
+      t.showA && w.author ? h('div', { class: 'ptitle-a' }, 'さく：' + w.author) : null);
+    p.appendChild(box);
+  }
+  p.appendChild(h('div', { class: 'ptitle-btns' }, buttons));
+  return p;
 }
 function showPanel(p) { clearPanel(); P.panel = p; $('#scr-play').appendChild(p); }
 function clearPanel() { if (P.panel) P.panel.remove(); P.panel = null; }

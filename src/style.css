@@ -130,13 +130,25 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .pend .btn{background:var(--wui-d)!important}
 .pend-t{font-size:40px;font-family:var(--pfont,var(--ftx));margin:6px 0 10px}
 .pend-s{font-size:22px;font-family:var(--pfont,var(--ftx))}
-.ptitle{background:var(--wui-p)}
-.ptitle-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.ptitle-box{position:absolute;left:0;right:0;bottom:60px;display:flex;flex-direction:column;align-items:center;gap:10px}
-.ptitle-t{font-family:var(--pfont,var(--ftx));font-size:56px;color:var(--wtx);background:var(--wwin);border:3px solid var(--wui-l);border-radius:16px;padding:10px 40px;max-width:90%;text-align:center;line-height:1.25}
+.ptitle{background:var(--wui-p);overflow:hidden}
+.ptitle-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ptitle-box{position:absolute;display:flex;flex-direction:column;align-items:center;gap:10px;left:40px;right:40px}
+.ptitle-box.tp-top{top:84px}
+.ptitle-box.tp-mid{top:36%;transform:translateY(-50%)}
+.ptitle-box.tp-bottom{bottom:60px}
+.bp-row .ptitle-box.tp-bottom{bottom:140px}
+.ptitle-box.tp-bottom.side-left{right:auto;max-width:calc(100% - 400px);align-items:flex-start}
+.ptitle-box.tp-bottom.side-right{left:auto;max-width:calc(100% - 400px);align-items:flex-end}
+.ptitle-t{font-family:var(--pfont,var(--ftx));font-size:56px;color:var(--wtx);background:var(--wwin);border:3px solid var(--wui-l);border-radius:16px;padding:10px 40px;max-width:100%;text-align:center;line-height:1.25;box-sizing:border-box}
 .ptitle-a{font-family:var(--pfont,var(--ftx));font-size:22px;color:var(--wtx);background:var(--wwin);border-radius:10px;padding:4px 18px}
-.ptitle-btns{display:flex;gap:16px;margin-top:14px}
-.ptitle-btns .btn{width:220px}
+.ptitle-btns{position:absolute;display:flex;gap:16px}
+.ptitle-btns .btn{width:220px;height:52px}
+.bp-row .ptitle-btns{left:0;right:0;bottom:60px;justify-content:center}
+.bp-right .ptitle-btns,.bp-left .ptitle-btns,.bp-center .ptitle-btns{flex-direction:column;gap:12px}
+.bp-right .ptitle-btns .btn,.bp-left .ptitle-btns .btn,.bp-center .ptitle-btns .btn{width:260px}
+.bp-right .ptitle-btns{right:40px;bottom:40px}
+.bp-left .ptitle-btns{left:40px;bottom:40px}
+.bp-center .ptitle-btns{left:50%;transform:translateX(-50%);top:54%}
 .dlg-sl{width:1000px}
 .slgrid{display:grid;grid-template-columns:repeat(3,300px);grid-template-rows:repeat(2,150px);gap:20px;justify-content:center}
 .slot{font-family:var(--fui);background:#fff;border:2px solid var(--line);border-radius:12px;color:var(--tx);text-align:left;padding:12px 16px;cursor:pointer;display:flex;flex-direction:column;gap:6px;overflow:hidden}
@@ -411,3 +423,18 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .loglist.novel{gap:0;padding:4px 20px 4px 12px;font-family:var(--pfont,var(--ftx));font-size:24px;line-height:1.6}
 .nl-line{white-space:pre-wrap;flex:none;color:var(--wtx)}
 .nl-line.ch{color:var(--acc);margin:8px 0}
+.tprev{position:absolute;overflow:hidden;border-radius:10px;border:2px solid var(--line2);background:#fff}
+.tprev.over{outline:4px dashed #1c7ed6;outline-offset:-4px}
+.tprev .ptitle{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+.tprev .btn{background:var(--wui);border-color:var(--wui-l);color:var(--wtx);box-shadow:none}
+.tprev .btn.off{opacity:.45}
+.tlist .ev{height:44px}
+.tcol{display:flex;flex-direction:column;gap:4px}
+.bpos-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+.bpos{height:170px;border-radius:12px;border:2px solid var(--line2);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;font-family:var(--fui);color:var(--tx)}
+.bpos:hover{border-color:var(--pri)}
+.bpos.on{border:3px solid var(--brand);background:#eef2fb}
+.bpos.off{opacity:.45;cursor:default}
+.bpos .sv-bg{fill:#dfe6f4;stroke:#9aa9c8}
+.bpos .sv-b{fill:var(--brand)}
+.bpos-n{display:flex;align-items:center;gap:4px;font-size:17px;font-weight:bold}

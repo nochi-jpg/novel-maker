@@ -72,6 +72,8 @@ function fixWork(w) {
   for (const m of w.media) if (m.folder == null) m.folder = '';
   w.opts.mode = w.opts.mode || 'window';
   if (w.opts.endList == null) w.opts.endList = true;
+  if (!w.tscr) w.tscr = { bg: w.titleImg || null, ch: {}, showT: true, showA: true, tpos: 'bottom', bpos: 'row', theme: null };
+  w.tscr.ch = w.tscr.ch || {};
   w.theme = Object.assign({}, DEF_THEME, { win: w.theme.ui, ch: w.theme.ui }, w.theme);
   return w;
 }
@@ -157,6 +159,7 @@ async function importFile(file) {
       for (const m of w.media) { const n = uid(); map[m.id] = n; media[n] = media[m.id]; delete media[m.id]; m.id = n; }
       const re = v => (v && map[v]) ? map[v] : v;
       w.titleImg = re(w.titleImg);
+      if (w.tscr) { w.tscr.bg = re(w.tscr.bg); for (const s in w.tscr.ch || {}) w.tscr.ch[s].m = re(w.tscr.ch[s].m); }
       for (const b of Object.values(w.blocks)) for (const li in b.cues) {
         const c = b.cues[li];
         if (c.bg) c.bg = re(c.bg); if (c.se) c.se = re(c.se); if (c.bgm) c.bgm = re(c.bgm);

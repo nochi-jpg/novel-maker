@@ -55,6 +55,10 @@ function defaultGuide() {
     if (!E.libSel) return '② まん中で、入れたい背景・人物・音をえらぼう';
     return '「この行に入れる」をおそう（③で、たしかめられます）';
   }
+  if (E.tab === 'title') {
+    if (E.ttab === 'bg' || E.ttab === 'ch') return E.libSel ? '「入れる」をおすか、左の見本にドラッグしよう' : '右で絵をえらぼう（パソコンの画像を左の見本にドロップしてもOK）';
+    return 'タイトル画面の文字・ボタン・色を決めよう。左の見本で、たしかめられます';
+  }
   return '作品の名前や色を決めて、できたら「作品を書き出す」で友だちに送ろう';
 }
 function editorRefresh() {
@@ -65,8 +69,10 @@ function editorRefresh() {
   // 上のバー
   const head = h('div', { class: 'ed-head' });
   // もどる：1つ前のステップへ（最初のステップなら作品えらびへ）。家：最初のステップ（お話をつなぐ）へ
-  const steps0 = stepsOf(w), si = steps0.findIndex(x => x[0] === E.tab);
+  const tabK = E.tab === 'title' ? 'work' : E.tab;
+  const steps0 = stepsOf(w), si = steps0.findIndex(x => x[0] === tabK);
   head.appendChild(btn('back', 'もどる', async () => {
+    if (E.tab === 'title') { goStep('work'); return; }
     if (si > 0) { goStep(steps0[si - 1][0]); return; }
     stopBGM(); await flushSave(); gotoSelect('make', APP.page);
   }, 'tl'));
@@ -76,7 +82,7 @@ function editorRefresh() {
   const steps = h('div', { class: 'steps' });
   stepsOf(w).forEach(([k, lb], i) => {
     if (i) steps.appendChild(h('span', { class: 'step-ar' }, ic('next')));
-    steps.appendChild(h('button', { class: 'step' + (E.tab === k ? ' now' : ''), onclick: () => { if (E.tab !== k) goStep(k); } },
+    steps.appendChild(h('button', { class: 'step' + (tabK === k ? ' now' : ''), onclick: () => { if (E.tab !== k) goStep(k); } },
       h('span', { class: 'no' }, String(i + 1)), lb));
   });
   head.appendChild(steps);
@@ -86,7 +92,7 @@ function editorRefresh() {
   s.appendChild(head);
   const body = h('div', { class: 'ed-body' });
   s.appendChild(body);
-  ({ map: renderMap, text: renderText, fx: renderFx, work: renderWorkTab })[E.tab](body);
+  ({ map: renderMap, text: renderText, fx: renderFx, work: renderWorkTab, title: renderTitleTab })[E.tab](body);
   // 案内バー
   const gm = E.guideMsg;
   const g = h('div', { class: 'guide' + (gm && gm.warn ? ' warn' : ''), id: 'guide' }, ic('info'), h('div', { class: 'g-msg' }, gm ? gm.msg : defaultGuide()),
@@ -645,6 +651,7 @@ function usageOf(id) {
     if (c.ch) for (const s in c.ch) if (c.ch[s].m === id) n++;
   }
   if (w.titleImg === id) n++;
+  if (w.tscr) { if (w.tscr.bg === id) n++; for (const s in w.tscr.ch) if (w.tscr.ch[s].m === id) n++; }
   return n;
 }
 async function removeMedia(ids) {
@@ -656,6 +663,7 @@ async function removeMedia(ids) {
     if (!Object.keys(c).length) delete b.cues[li];
   }
   if (set.has(w.titleImg)) w.titleImg = null;
+  if (w.tscr) { if (set.has(w.tscr.bg)) w.tscr.bg = null; for (const s in w.tscr.ch) if (set.has(w.tscr.ch[s].m)) delete w.tscr.ch[s]; }
   w.media = w.media.filter(m => !set.has(m.id));
   for (const id of ids) { await dbDel('media', id); delete MEDIA[id]; delete AU.bufs[id]; }
   if (set.has(E.libSel)) E.libSel = null;
@@ -766,7 +774,6 @@ function renderWorkTab(body) {
   const L = h('div', { class: 'panel' }); L.style.cssText = 'left:16px;top:8px;width:620px;height:584px';
   const ti = h('input', { class: 'inp sm', maxlength: 30, value: w.title, style: 'width:420px' }); ti.oninput = () => { w.title = ti.value; markDirty(); $('.g-work').textContent = '作品：' + (w.title || 'むだい'); };
   const au = h('input', { class: 'inp sm', maxlength: 16, value: w.author, style: 'width:420px' }); au.oninput = () => { w.author = au.value; markDirty(); };
-  const bgs = [null, ...SAMPLE_BG.map(x => x.id), ...w.media.filter(m => m.kind === 'bg').map(m => m.id)], ti2 = Math.max(0, bgs.indexOf(w.titleImg));
   const col = h('div', null,
     h('div', { class: 'p-h' }, '作品のじょうほう'),
     row('タイトル', ti), row('作者名', au),
@@ -778,12 +785,11 @@ function renderWorkTab(body) {
     row('文章の出し方', ...opt(w.opts.mode, [['window', 'ウインドウ'], ['novel', 'サウンドノベル']], v => { w.opts.mode = v; markDirty(true); })),
     row('名前の欄', ...opt(w.opts.name, [[true, 'オン', w.opts.mode === 'novel' ? 'サウンドノベルタイプでは名前の欄は使いません' : null], [false, 'オフ']], v => { w.opts.name = v; markDirty(true); })),
     row('タイトル画面', ...opt(w.opts.title, [[true, 'つける'], [false, 'つけない']], v => { w.opts.title = v; markDirty(true); })),
-    row('タイトルの絵', btn('prev', null, () => { w.titleImg = bgs[(ti2 - 1 + bgs.length) % bgs.length]; markDirty(true); }, 'sm'),
-      h('div', { class: 'wk-val' }, w.titleImg ? mediaName(w, w.titleImg) : 'なし'),
-      btn('next', null, () => { w.titleImg = bgs[(ti2 + 1) % bgs.length]; markDirty(true); }, 'sm')),
+    row('', w.opts.title ? btn('edit', 'タイトル画面を作る', () => { E.ttab = E.ttab || 'bg'; E.libKind = E.ttab === 'ch' ? 'ch' : 'bg'; E.libPath = []; E.libPage = 0; E.libSel = null; goStep('title'); }, 'sm wide2')
+      : btnOff('edit', 'タイトル画面を作る', '「タイトル画面」を「つける」にすると作れます', 'sm wide2')),
     row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })),
     row('エンディング一覧', ...opt(w.opts.endList !== false, [[true, '見せる'], [false, '見せない']], v => { w.opts.endList = v; markDirty(true); })));
-  $$('.wk-row .btn', col).forEach(b => { b.style.width = b.textContent ? '160px' : '50px'; });
+  $$('.wk-row .btn', col).forEach(b => { b.style.width = b.classList.contains('wide2') ? '330px' : b.textContent ? '160px' : '50px'; });
   pin(L, col, 14, 8, 590, 570);
   body.appendChild(L);
   // 右上：見た目
@@ -821,6 +827,127 @@ function renderWorkTab(body) {
   if (E.chk.count && w.opts.long) pin(R2, btn('map', 'マップ', () => goStep('map'), 'xs'), 14, 68, 100, 26);
   pin(R2, btn('down', '作品を書き出す', async () => { await flushSave(); exportDialog(w); }, 'pri'), 354, 14, 244, 68);
   body.appendChild(R2);
+}
+/* ---------- 4' タイトル画面を作る ---------- */
+const TTABS = [['bg', 'image', '背景'], ['ch', 'user', '人物'], ['text', 'text', '文字'], ['btn', 'box', 'ボタン'], ['color', 'palette', '色']];
+const BPOS = [['row', '下に横ならび'], ['right', '右下にたてならび'], ['left', '左下にたてならび'], ['center', 'まん中にたてならび']];
+function setT2(fn) { fn(E.w.tscr); markDirty(true); }
+function putTitle(id, kind) {
+  const t = E.w.tscr;
+  if (kind === 'bg') t.bg = id;
+  else if (kind === 'ch') { const cur = t.ch[E.chSlot]; t.ch[E.chSlot] = { m: id, s: cur ? cur.s : 1, y: cur ? cur.y : 0 }; }
+  else { guide('タイトル画面に入れられるのは、背景と人物の絵です', true); return; }
+  markDirty(true);
+  guide(`タイトル画面の${kind === 'ch' ? '人物（' + SLOT_NAME[E.chSlot] + '）' : '背景'}に「${mediaNameX(id)}」を入れました`);
+}
+async function dropToTitle(e) {
+  let id = e.dataTransfer.getData('text/nm-media');
+  if (!id) {
+    const fs = [...e.dataTransfer.files]; if (!fs.length) return;
+    if (!/^image\//.test(fs[0].type)) { guide('タイトル画面に入れられるのは、画像のファイルです', true); return; }
+    id = (await addMediaFiles(fs.slice(0, 1), E.libKind === 'ch' ? 'ch' : 'bg', true))[0]; if (!id) return;
+  }
+  putTitle(id, libKindOf(id));
+}
+function renderTitleTab(body) {
+  const w = E.w, t = w.tscr, W = stageWOf(w);
+  if (!TTABS.some(x => x[0] === E.ttab)) E.ttab = 'bg';
+  // 左：見本と並べたもの
+  const L = h('div', { class: 'panel' }); L.style.cssText = 'left:16px;top:8px;width:620px;height:584px';
+  pin(L, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '1'), '見本と並べたもの', h('span', { class: 'p-hint' }, ic('down', 16), '見本に絵をドロップできます')), 12, 10, 596, 32);
+  const ph = 330, sc = Math.min(596 / W, ph / 720), pw = Math.round(W * sc);
+  const box = pin(L, h('div', { class: 'tprev' }), 12 + (596 - pw) / 2, 46, pw, Math.round(720 * sc));
+  const dom = titleDom(w, [btn('play', 'はじめから', null), btn('book', 'つづきから', null), btn('load', 'ロード', null), endListOn(w) ? btn('flag', 'エンディング', null) : null]);
+  dom.style.transform = `scale(${sc})`; dom.style.height = '720px';
+  box.appendChild(dom);
+  box.ondragover = e => { e.preventDefault(); box.classList.add('over'); };
+  box.ondragleave = () => box.classList.remove('over');
+  box.ondrop = e => { e.preventDefault(); e.stopPropagation(); box.classList.remove('over'); dropToTitle(e); };
+  const X = (lb, fn, cls = '') => btn(null, lb, fn, 'xs ' + cls);
+  const rows = [];
+  const ev = (k, v, ...bs) => rows.push(h('div', { class: 'ev' }, h('div', { class: 'ev-k' }, k), h('div', { class: 'ev-v' + (v ? ' here' : ''), title: v || '' }, v || 'なし'), ...bs));
+  ev('背景', t.bg ? mediaNameX(t.bg) : '', ...(t.bg ? [X('はずす', () => setT2(t => { t.bg = null; }), 'dng')] : []));
+  for (let s = 0; s < 3; s++) {
+    const c = t.ch[s], adj = fn => () => setT2(t => fn(t.ch[s]));
+    ev('人物' + SLOT_NAME[s], c ? mediaNameX(c.m) : '', ...(c ? [X('小', adj(v => { v.s = Math.max(0.5, +((v.s || 1) - 0.1).toFixed(1)); })), X('大', adj(v => { v.s = Math.min(1.6, +((v.s || 1) + 0.1).toFixed(1)); })),
+      X('上', adj(v => { v.y = Math.min(8, (v.y || 0) + 1); })), X('下', adj(v => { v.y = Math.max(-8, (v.y || 0) - 1); })), X('はずす', () => setT2(t => { delete t.ch[s]; }), 'dng')] : []));
+  }
+  pin(L, h('div', { class: 'tlist' }, rows), 12, 390, 596, 180);
+  body.appendChild(L);
+  // 右：タブ
+  const R = h('div', { class: 'panel focus' }); R.style.cssText = 'left:648px;top:8px;width:616px;height:584px';
+  const tabs = h('div', { class: 'kind-tabs' }, TTABS.map(([k, icn, n]) => { const b = btn(icn, n, () => { E.ttab = k; if (k === 'bg' || k === 'ch') { E.libKind = k; E.libPath = []; E.libPage = 0; E.libSel = null; } E.guideMsg = null; editorRefresh(); }, 'sm kt' + (E.ttab === k ? ' on' : '')); b.style.flex = 'none'; b.style.width = '112px'; return b; }));
+  pin(R, tabs, 14, 12, 588, 42);
+  const k = E.ttab;
+  if (k === 'bg' || k === 'ch') {
+    E.libKind = k;
+    const fbar = h('div', { class: 'fbar' },
+      E.libPath.length ? btn('folderup', '上へ', () => { E.libPath.pop(); E.libPage = 0; editorRefresh(); }, 'xs') : null,
+      h('div', { class: 'fpath' }, ic('folder'), E.libPath.length ? E.libPath.map(PATH_NAME).join(' › ') : KIND_NAME[k] + 'のはじめ'),
+      btn('up', '追加', async () => addMediaFiles(await pickFiles('image/*'), k), 'xs'),
+      btn('box', '整理', () => openManager(k), 'xs'));
+    pin(R, fbar, 14, 62, 588, 36);
+    const items = libEntries(k, E.libPath), per = 9, pages = Math.max(1, Math.ceil(items.length / per));
+    E.libPage = clamp(E.libPage, 0, pages - 1);
+    const grid = pin(R, h('div', null), 14, 106, 588, 330);
+    items.slice(E.libPage * per, E.libPage * per + per).forEach((en, i) =>
+      pin(grid, libCard(en, k, kk => { E.libPath.push(kk); E.libPage = 0; editorRefresh(); }), (i % 3) * 198, Math.floor(i / 3) * 112, 190, 104));
+    if (!items.length) grid.appendChild(h('div', { class: 'lib-empty' }, 'このフォルダは空です。画像をここにドロップするか、「追加」で入れられます。'));
+    grid.ondragover = e => e.preventDefault();
+    grid.ondrop = e => { e.preventDefault(); e.stopPropagation(); addMediaFiles([...e.dataTransfer.files], k); };
+    pin(R, pager(E.libPage, pages, p => { E.libPage = p; editorRefresh(); }), 14, 446, 588, 40);
+    const canPut = E.libSel && libKindOf(E.libSel) === k, why = '先に、入れたい絵をえらんでください';
+    if (k === 'ch') {
+      const pos3 = h('div', { class: 'row', style: 'gap:6px' }, SLOT_NAME.map((n, s) => btn(null, n, () => { E.chSlot = s; editorRefresh(); }, 'sm' + (E.chSlot === s ? ' on' : ''))));
+      $$('.btn', pos3).forEach(x => x.style.width = '86px');
+      pin(R, pos3, 14, 520, 270, 50);
+      pin(R, canPut ? btn('check', SLOT_NAME[E.chSlot] + 'に入れる', () => putTitle(E.libSel, 'ch'), 'pri') : btnOff('check', SLOT_NAME[E.chSlot] + 'に入れる', why), 296, 520, 306, 50);
+    } else {
+      pin(R, canPut ? btn('check', '背景に入れる', () => putTitle(E.libSel, 'bg'), 'pri') : btnOff('check', '背景に入れる', why), 14, 520, 588, 50);
+    }
+  } else {
+    const row = (label, ...kids) => h('div', { class: 'wk-row', style: 'height:46px' }, h('div', { class: 'wk-l' }, label), ...kids);
+    const opt = (cur, list, on) => list.map(([v, lb, off]) => off && cur !== v ? btnOff(null, lb, off, 'sm') : btn(cur === v ? 'check' : null, lb, () => { if (cur !== v) on(v); }, 'sm' + (cur === v ? ' on' : '')));
+    const col = h('div', { class: 'tcol' });
+    if (k === 'text') {
+      const ti = h('input', { class: 'inp sm', maxlength: 30, value: w.title, style: 'width:420px' });
+      ti.oninput = () => { w.title = ti.value; markDirty(); }; ti.onchange = () => markDirty(true);
+      const au = h('input', { class: 'inp sm', maxlength: 16, value: w.author, style: 'width:420px' });
+      au.oninput = () => { w.author = au.value; markDirty(); }; au.onchange = () => markDirty(true);
+      col.append(row('タイトル', ti), row('作者名', au),
+        row('タイトルの文字', ...opt(t.showT, [[true, '出す'], [false, '出さない']], v => setT2(t => { t.showT = v; }))),
+        row('作者名の文字', ...opt(t.showA, [[true, '出す', w.author ? null : '作者名が入っていません'], [false, '出さない']], v => setT2(t => { t.showA = v; }))),
+        row('文字の位置', ...opt(t.tpos, [['top', '上'], ['mid', 'まん中'], ['bottom', '下', t.bpos === 'center' ? 'ボタンが「まん中」なので、重なってしまいます' : null]], v => setT2(t => { t.tpos = v; }))),
+        h('div', { class: 'set-note' }, '絵の中にタイトルがかいてあるときは、「タイトルの文字」を「出さない」にしよう。'));
+      $$('.wk-row .btn', col).forEach(b => b.style.width = '134px');
+    } else if (k === 'btn') {
+      const svg = v => {
+        const r = (x, y, w2, h2) => `<rect x="${x}" y="${y}" width="${w2}" height="${h2}" rx="3"/>`;
+        const bs = v === 'row' ? [0, 1, 2, 3].map(i => r(22 + i * 40, 76, 34, 10)).join('') : [0, 1, 2, 3].map(i => r(v === 'right' ? 130 : v === 'left' ? 14 : 72, (v === 'center' ? 50 : 40) + i * 13, 46, 9)).join('');
+        return `<svg viewBox="0 0 190 100" width="190" height="100"><rect x="1" y="1" width="188" height="98" rx="6" class="sv-bg"/><g class="sv-b">${bs}</g></svg>`;
+      };
+      const grid = h('div', { class: 'bpos-grid' }, BPOS.map(([v, n]) => {
+        const off = v === 'center' && t.tpos === 'bottom';
+        const c = h('button', { class: 'bpos' + (t.bpos === v ? ' on' : '') + (off ? ' off' : ''), onclick: () => { if (off) { guide('文字の位置が「下」なので、まん中のボタンと重なります（文字の位置を変えてからえらんでね）', true); return; } setT2(t => { t.bpos = v; }); } });
+        c.innerHTML = svg(v); c.appendChild(h('div', { class: 'bpos-n' }, t.bpos === v ? ic('check', 18) : null, n));
+        return c;
+      }));
+      col.append(grid);
+    } else {
+      const th = titleTheme(w), own = !!t.theme;
+      const setC = (kk, v) => setT2(t => { t.theme = Object.assign({ ui: th.ui, win: th.win, tx: th.tx, alpha: th.alpha }, t.theme || {}, { [kk]: v }); });
+      const sw = (cur, list, on) => h('div', { class: 'sw-row' }, list.map(c => h('button', { class: 'sw' + (cur === c ? ' on' : ''), style: `background:${c}`, onclick: () => on(c) })), colorInp(cur, on));
+      const al = row('すけぐあい', ...ALPHA_NAMES.map((n, i) => btn(th.alpha === i ? 'check' : null, n, () => setC('alpha', i), 'sm' + (th.alpha === i ? ' on' : ''))));
+      $$('.btn', al).forEach(b => b.style.width = '104px');
+      col.append(row('ボタンの色', sw(th.ui, UI_COLORS, v => setC('ui', v))), row('タイトルの色', sw(th.win, WIN_COLORS, v => setC('win', v))),
+        row('文字の色', sw(th.tx, TX_COLORS, v => setC('tx', v))), al,
+        row('', own ? btn('undo', '読む画面と同じ色にもどす', () => setT2(t => { t.theme = null; }), 'sm wide2') : btnOff('undo', '読む画面と同じ色にもどす', 'いまは読む画面と同じ色です', 'sm wide2')),
+        h('div', { class: 'set-note' }, '文字の形は、作品の文字の形（しあげ・送る）と同じになります。'));
+      $$('.wide2', col).forEach(b => b.style.width = '330px');
+    }
+    pin(R, col, 14, 62, 588, 508);
+  }
+  body.appendChild(R);
 }
 function colorInp(val, on) {
   const i = h('input', { type: 'color', class: 'cpick', value: val, title: '自由に色をえらぶ' });
