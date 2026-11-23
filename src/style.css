@@ -448,3 +448,46 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .slot-info .slot-b{font-size:14px}
 .slot-info .slot-s{font-size:15px;height:40px;line-height:1.3}
 .slot.emp .slot-th{background:rgba(0,0,0,.08)}
+/* ---- チュートリアル ---- */
+.tt-tut{position:absolute;left:470px;top:540px}
+.tut-lead{position:absolute;left:0;right:0;top:84px;text-align:center;font-size:18px;color:var(--sub)}
+.tut-cols{position:absolute;left:40px;right:40px;top:126px;display:flex;gap:24px}
+.tut-col{flex:1;background:#fff;border:2px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;height:570px}
+.tut-lv{font-size:26px;font-weight:bold;color:var(--brand)}
+.tut-col.lv1 .tut-lv{color:#2f9e44}.tut-col.lv2 .tut-lv{color:#c2410c}
+.tut-lv-s{font-size:15px;color:var(--sub);margin-bottom:6px}
+.tut-ch{display:flex;align-items:center;gap:10px;height:56px;padding:0 12px;border:2px solid var(--line2);border-radius:12px;background:#fff;font-family:var(--fui);font-size:17px;font-weight:bold;color:var(--tx);cursor:pointer;text-align:left;flex:none}
+.tut-ch:hover{border-color:var(--pri);background:#fff8ef}
+.tut-no{flex:none;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px}
+.tut-col.lv1 .tut-no{background:#2f9e44}.tut-col.lv2 .tut-no{background:#c2410c}
+.tut-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tut-done{flex:none;display:flex;align-items:center;gap:2px;color:#2f9e44;font-size:15px}
+.tut-ch.done{background:#f3fbf5}
+#tut{position:absolute;left:0;top:0;width:100%;height:720px;z-index:500;pointer-events:none;overflow:hidden}
+#tut .tut-dim{position:absolute;left:0;top:0;width:100%;height:100%}
+#tut .tut-shade{fill:rgba(10,20,45,.55);transition:fill .3s}
+#tut.free .tut-shade{fill:rgba(10,20,45,.3)}
+#tut .tut-ring{fill:none;stroke:#ffd43b;stroke-width:4;filter:drop-shadow(0 0 8px rgba(255,212,59,.9));animation:tutRing 1.2s ease-in-out infinite}
+#tut .tut-rings.nudge{animation:tutNudge .4s}
+@keyframes tutRing{50%{stroke-opacity:.4}}
+@keyframes tutNudge{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+#tut .tut-box{position:absolute;left:410px;top:300px;width:460px;pointer-events:auto;background:#fff;border:3px solid var(--brand);border-radius:16px;padding:12px 18px 14px;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:left .4s ease,top .4s ease;font-family:var(--fui);color:var(--tx)}
+#tut .tut-box.pop{animation:tutPop .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes tutPop{from{transform:scale(.92);opacity:.4}}
+#tut .tut-head{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:bold;color:var(--sub);margin-bottom:6px}
+#tut .tut-head span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tut .tut-pg{flex:none}
+#tut .tut-txt{font-size:18px;line-height:1.6}
+#tut .tut-txt b{color:#c2410c}
+#tut .tut-iss{display:inline-flex;align-items:center;gap:2px;font-weight:bold;white-space:nowrap;font-size:15px}
+#tut .tut-foot{display:flex;justify-content:flex-end;align-items:center;margin-top:10px;min-height:44px}
+#tut .tut-foot .btn{min-width:150px;height:44px}
+#tut .tut-hint{height:40px;display:flex;align-items:center;gap:6px;padding:0 16px;border-radius:20px;background:#fff4d6;border:2px solid #f08c00;color:#c46d00;font-weight:bold;font-size:15px;animation:tutBlink 1.1s ease-in-out infinite}
+@keyframes tutBlink{50%{opacity:.55}}
+#tut .tut-quit{position:absolute;left:12px;top:666px;width:124px;height:44px;pointer-events:auto;transition:left .3s,top .3s;z-index:2}
+#tut .tut-arrow{position:absolute;color:#ffd43b;filter:drop-shadow(0 2px 4px rgba(0,0,0,.7));animation:tutBob .8s ease-in-out infinite;pointer-events:none}
+#tut .tut-arrow.up .ic{transform:rotate(180deg)}
+@keyframes tutBob{50%{transform:translateY(8px)}}
+#tut .tut-ask{position:absolute;inset:0;pointer-events:auto;background:rgba(10,20,45,.55);display:flex;align-items:center;justify-content:center;z-index:3}
+#tut .tut-ask .dlg{text-align:center}
+#tut .tut-ask .dlg-btns .btn{min-width:180px}

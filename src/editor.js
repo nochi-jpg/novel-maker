@@ -163,7 +163,7 @@ function endSummary(b) {
 function blockCard(b, chk) {
   const w = E.w, iss = chk.issues[b.id] || [], [ec, ei, et] = endSummary(b);
   const types = [...new Set(iss.map(x => x.type))];
-  return h('div', { class: 'bcard' + (b.id === E.bid && !E.pick ? ' sel' : '') + (E.pick ? (E.pick.from === b.id ? ' nopick' : ' pickable') : ''), onclick: () => {
+  return h('div', { 'data-bid': b.id, class: 'bcard' + (b.id === E.bid && !E.pick ? ' sel' : '') + (E.pick ? (E.pick.from === b.id ? ' nopick' : ' pickable') : ''), onclick: () => {
     if (E.pick) { if (E.pick.from === b.id) { guide('自分自身にはつなげません', true); return; } E.pick.set(b.id); E.pick = null; E.guideMsg = null; markDirty(true); return; }
     E.bid = b.id; E.li = null; E.linePage = 0; editorRefresh();
   } },
@@ -372,7 +372,7 @@ function renderText(body) {
   pin(R, h('div', { class: 'hint', style: 'color:var(--tx);font-size:17px' }, tips.map(t => h('div', { style: 'margin-bottom:12px;display:flex;gap:6px' }, h('span', { style: 'color:var(--pri-d)' }, '●'), h('span', null, t)))), 14, 52, 360, 380);
   pin(R, btn('next', '次は 絵と音をつける', () => goStep('fx'), 'pri'), 14, 520, 360, 52);
   body.appendChild(R);
-  upd(); setTimeout(() => ta.focus(), 30);
+  upd(); if (!TUT.on) setTimeout(() => ta.focus(), 30);
 }
 function shiftCues(b, oldT, newT) {
   const a = oldT.split('\n'), n = newT.split('\n'); if (a.length === n.length) return;

@@ -2,7 +2,7 @@
 import pathlib, base64, json
 root = pathlib.Path(__file__).parent
 src = root / 'src'
-order = ['util.js', 'icons.js', 'db.js', 'audio.js', 'audio2.js', 'fx.js', 'layout.js', 'check.js', 'player.js', 'editor.js', 'app.js']
+order = ['util.js', 'icons.js', 'db.js', 'audio.js', 'audio2.js', 'fx.js', 'layout.js', 'check.js', 'player.js', 'editor.js', 'tutorial.js', 'app.js']
 b64 = lambda p, mime: f'data:{mime};base64,' + base64.b64encode(p.read_bytes()).decode()
 BG = [('bg01', '夜の森'), ('bg02', '学校（夕方）'), ('bg03', '学校（昼）'), ('bg04', '子ども部屋'), ('bg05', '夜の住宅街'), ('bg06', '住宅街（昼）'),
       ('bg07', '教室'), ('bg08', '教室（朝）'), ('bg09', '黒板'), ('bg10', 'ろうか（ドア）'), ('bg11', '教室のかべ'),

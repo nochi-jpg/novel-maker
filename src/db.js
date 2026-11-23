@@ -82,7 +82,7 @@ async function loadMediaFor(w) {
   for (const k in MEDIA) delete MEDIA[k];
   for (const m of w.media) { const r = await dbGet('media', m.id); if (r) MEDIA[m.id] = r.data; }
 }
-async function saveWork(w) { w.updated = Date.now(); await dbPut('works', w); }
+async function saveWork(w) { if (w.tut) return; w.updated = Date.now(); await dbPut('works', w); } // チュートリアルの作品は保存しない
 async function deleteWork(w) {
   for (const m of w.media) await dbDel('media', m.id);
   const keys = await dbKeys('saves');

@@ -22,6 +22,7 @@ function gotoTitle() {
       btn('book', '見る', () => gotoSelect('view'), 'big'),
       btn('text', '作る', () => gotoSelect('make'), 'big pri'),
       btn('load', 'もらった作品を読みこむ', () => importDialog(), 'big')),
+    btn('cap', 'チュートリアル', () => gotoTutorial(), 'big tt-tut'),
     btn('gear', '設定', () => openSettings(), 'tr'),
     h('div', { class: 'tt-ver' }, 'きょういく版 v0.2'));
   showScreen('title');
@@ -112,6 +113,7 @@ function newWorkDialog() {
   let m, cur = 'title';
   const ti = h('input', { class: 'inp sm', maxlength: 30, placeholder: '作品のタイトル' });
   const au = h('input', { class: 'inp sm', maxlength: 16, placeholder: '作者名（ニックネームでもOK）' });
+  if (TUT.on) { ti.value = 'はじめてのお話'; au.value = 'チュートリアル'; }
   const right = h('div', { class: 'wz-right' });
   const left = h('div', { class: 'wz-left' }, h('div', { class: 'dlg-title' }, '新しく作る'));
   const rows = [];
@@ -143,10 +145,10 @@ function newWorkDialog() {
     h('div', { class: 'wz-btns' },
       btn('check', '作る', async () => {
         o.title = ti.value.trim() || 'むだい'; o.author = au.value.trim();
-        const w = newWork(o); await saveWork(w); closeModal(m); openEditor(w);
+        const w = newWork(o); if (TUT.on) w.tut = true; await saveWork(w); closeModal(m); openEditor(w);
       }, 'pri'),
       btn('x', 'やめる', () => closeModal(m)))));
-  setTimeout(() => ti.focus(), 50);
+  if (!TUT.on) setTimeout(() => ti.focus(), 50);
 }
 /* ---- 設定 ---- */
 function openSettings() {
