@@ -58,7 +58,7 @@ async function gotoSelect(mode, page = 0) {
         w.editable ? null : h('span', { class: 'tag lock' }, ic('lock', 16), '改造だめ')),
       h('div', { class: 'card-d' }, '更新 ' + fmtDate(w.updated)),
       h('div', { class: 'card-btns' },
-        btn('down', '書き出す', e => { e.stopPropagation(); exportWork(w); }, 'sm'),
+        btn('down', '書き出す', e => { e.stopPropagation(); exportDialog(w); }, 'sm'),
         mode === 'make' ? btn('trash', '消す', async e => {
           e.stopPropagation();
           if (await okAsk('「' + w.title + '」を消しますか？', 'もとにもどせません')) { await deleteWork(w); gotoSelect(mode, page); }
@@ -164,9 +164,9 @@ function openSettings() {
     }
     if (tab === 1) {
       const cur = curOpenWork();
-      body.appendChild(h('div', { class: 'set-row set-data' },
+      if (!IS_VIEW) body.appendChild(h('div', { class: 'set-row set-data' },
         btn('home', 'タイトルへ', async () => { closeModal(m); if (P.typing) stopTyping(); gotoTitle(); }),
-        cur ? btn('down', '作品を書き出す', () => exportWork(cur)) : btnOff('down', '作品を書き出す', '作品を開いているときに使えます'),
+        cur ? btn('down', '作品を書き出す', () => exportDialog(cur)) : btnOff('down', '作品を書き出す', '作品を開いているときに使えます'),
         btn('load', '作品を読みこむ', async () => { closeModal(m); await importDialog(); })));
       body.appendChild(h('div', { class: 'set-note' }, '内蔵のBGM・効果音は、このアプリが自分で作っている音です（素材ファイルは使っていません）。'));
     }
@@ -206,4 +206,4 @@ window.addEventListener('drop', async e => {
   if (js.length && $('#scr-select').classList.contains('show')) gotoSelect(APP.mode, APP.page);
 });
 function applyUis() { $('#stage').style.setProperty('--uis', sv('uifs')); }
-window.addEventListener('DOMContentLoaded', () => { applyUis(); fitStage(); gotoTitle(); });
+window.addEventListener('DOMContentLoaded', () => { applyUis(); fitStage(); if (IS_VIEW) bootView(); else gotoTitle(); });

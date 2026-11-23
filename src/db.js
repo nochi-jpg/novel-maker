@@ -1,5 +1,5 @@
 /* ===== 保存（IndexedDB）と作品データ ===== */
-const DB_NAME = 'novelmaker-edu', APP_ID = 'novel-maker-edu', FILE_VER = 1;
+const DB_NAME = window.VIEW_WORK ? 'novelmaker-view' : 'novelmaker-edu', APP_ID = 'novel-maker-edu', FILE_VER = 1;
 let _db = null;
 function dbOpen() {
   if (_db) return Promise.resolve(_db);
@@ -96,6 +96,45 @@ async function exportWork(w) {
   const name = (w.title || 'sakuhin').replace(/[\\/:*?"<>|]/g, '_') + '.json';
   download(name, json);
   toast('「' + name + '」を書き出しました');
+}
+/* 書き出し：形をえらぶ */
+async function exportDialog(w) {
+  const r = await ask('どの形で書き出しますか？', [
+    { label: '作品ファイル（JSON）', value: 'json', icon: 'down' },
+    { label: '見るだけのHTML', value: 'html', icon: 'play' },
+    { label: 'やめる', value: null, icon: 'x' }],
+    '作品ファイル：友だちのアプリに読みこんで、読んだり改造したりできます。\n見るだけのHTML：ダブルクリックするだけで読めます（パソコンの横画面用）。');
+  if (r === 'json') await exportWork(w);
+  else if (r === 'html') await exportViewer(w);
+}
+/* 見るだけのHTML：アプリの読む部分＋作品＋素材を1本にまとめる */
+async function exportViewer(w) {
+  if (!PAGE_SRC) { toast('ここでは書き出せません'); return; }
+  toast('見るだけのHTMLを作っています…');
+  const media = {};
+  for (const m of w.media) { const r = await dbGet('media', m.id); if (r) media[m.id] = r.data; }
+  const out = clone(w); delete out.recv;
+  const used = new Set((JSON.stringify(out).match(/"I:[^"]+"/g) || []).map(s => s.slice(1, -1)));
+  const B = '/*NM-SAMPLES' + '{*/', Z = '/*}' + 'NM-SAMPLES*/';
+  const a = PAGE_SRC.indexOf(B), z = PAGE_SRC.indexOf(Z, a);
+  if (a < 0 || z < 0) { toast('書き出しに失敗しました'); return; }
+  const js = v => JSON.stringify(v).replace(/<\//g, '<\\/').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+  const mid = B + '\nwindow.VIEW_WORK=' + js({ work: out, media }) + ';\nconst SAMPLE_BG=' + js(SAMPLE_BG.filter(x => used.has(x.id))) +
+    ';\nconst SAMPLE_CH=' + js(SAMPLE_CH.filter(x => used.has(x.id))) + ';\nconst SAMPLE_CHARS=' + js(SAMPLE_CHARS) + ';\nconst LOGO_SRC="";\n';
+  let html = PAGE_SRC.slice(0, a) + mid + PAGE_SRC.slice(z);
+  const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  html = html.replace(/<title>[^<]*<\/title>/, '<title>' + esc(w.title || 'むだい') + '</title>');
+  const name = (w.title || 'sakuhin').replace(/[\\/:*?"<>|]/g, '_') + '.html';
+  download(name, html, 'text/html');
+  toast('「' + name + '」を書き出しました（' + (html.length / 1048576).toFixed(1) + 'MB）');
+}
+/* 見るだけのHTMLをひらいたとき */
+async function bootView() {
+  const { work: w, media } = window.VIEW_WORK;
+  fixWork(w);
+  for (const id in media) await dbPut('media', { id, wid: w.id, data: media[id] });
+  await dbPut('works', w);
+  playWork(w, { view: true });
 }
 /* 読みこみ */
 async function importFile(file) {

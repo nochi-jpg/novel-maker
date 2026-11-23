@@ -55,7 +55,7 @@ function defaultGuide() {
     if (!E.libSel) return '② まん中で、入れたい背景・人物・音をえらぼう';
     return '「この行に入れる」をおそう（③で、たしかめられます）';
   }
-  return '作品の名前や色を決めて、できたら「作品ファイルを書き出す」で友だちに送ろう';
+  return '作品の名前や色を決めて、できたら「作品を書き出す」で友だちに送ろう';
 }
 function editorRefresh() {
   const s = $('#scr-edit'); s.innerHTML = '';
@@ -819,7 +819,7 @@ function renderWorkTab(body) {
   pin(R2, h('div', { class: 'bp-iss' + (E.chk.count ? ' bad' : '') }, ic(E.chk.count ? 'warn' : 'check'),
     E.chk.count ? `問題が ${E.chk.count} こ（送ることはできます）` : 'お話のつながりは大丈夫です'), 14, 44, 330, 24);
   if (E.chk.count && w.opts.long) pin(R2, btn('map', 'マップ', () => goStep('map'), 'xs'), 14, 68, 100, 26);
-  pin(R2, btn('down', '作品ファイルを書き出す', async () => { await flushSave(); exportWork(w); }, 'pri'), 354, 14, 244, 68);
+  pin(R2, btn('down', '作品を書き出す', async () => { await flushSave(); exportDialog(w); }, 'pri'), 354, 14, 244, 68);
   body.appendChild(R2);
 }
 function colorInp(val, on) {

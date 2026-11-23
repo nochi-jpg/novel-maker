@@ -95,8 +95,11 @@ function readAsDataURL(file) {
 function readAsText(file) {
   return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(file); });
 }
-function download(name, text) {
-  const blob = new Blob([text], { type: 'application/json' });
+/* 見るだけのHTMLを作るため、ひらいた直後のページの中身をとっておく */
+const PAGE_SRC = window.VIEW_WORK ? '' : '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+const IS_VIEW = !!window.VIEW_WORK;
+function download(name, text, type) {
+  const blob = new Blob([text], { type: type || 'application/json' });
   const a = h('a', { href: URL.createObjectURL(blob), download: name });
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);

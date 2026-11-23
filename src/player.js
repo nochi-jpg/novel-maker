@@ -16,6 +16,7 @@ function themeVars(el, th0) {
   el.style.setProperty('--pfont', (FONTS[(th0 && th0.font) || 'kyokasho'] || FONTS.kyokasho)[1]);
   el.style.setProperty('--wwinc', th.win);
   el.style.setProperty('--wwin-l', mix(th.win, '#ffffff', 0.45));
+  el.style.setProperty('--wwin-d', mix(th.win, '#000000', 0.3));
   el.style.setProperty('--wwin', rgba(th.win, a));
   el.style.setProperty('--wch', rgba(th.ch, a));
   el.style.setProperty('--wch-l', mix(th.ch, '#ffffff', 0.45));
@@ -24,7 +25,7 @@ const stageWOf = w => w.ratio === '4:3' ? 960 : 1280;
 const isNovel = () => P.w && P.w.opts.mode === 'novel';
 async function playWork(w, opts = {}) {
   auInit(); stopBGM();
-  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null, log: [] });
+  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, view: !!opts.view, onBack: opts.onBack, panel: null, log: [] });
   fixWork(w);
   if (opts.loadMedia !== false) await loadMediaFor(w);
   const rd = await dbGet('saves', w.id + ':read'); P.read = new Set(rd || []);
@@ -71,6 +72,7 @@ function buildPlayer() {
   const defs = [['back', 'もどる', () => playerBack()], ['prev', 'まえ', () => prevPage()], ['log', 'ログ', () => openLog()], ['skip', 'スキップ', () => toggleSkip()], ['auto', 'オート', () => toggleAuto()],
     ['save', 'セーブ', () => saveLoadPanel('save')], ['load', 'ロード', () => saveLoadPanel('load')], ['eyeoff', 'かくす', () => setHidden(true)], ['gear', '設定', () => openSettings()]];
   defs.forEach(([icn, lb, fn], i) => {
+    if (P.view && icn === 'back') return;
     const x = i === defs.length - 1 ? W - 20 - bw : 20 + i * (bw + gap);
     const b = btn(icn, lb, e => { e.stopPropagation(); auInit(); fn(); }, 'pb' + (W === 960 ? ' narrow' : ''));
     b.style.cssText = `left:${x}px;width:${bw}px`; b.id = 'pb-' + icn; bar.appendChild(b);
@@ -83,6 +85,8 @@ function buildPlayer() {
   scr.oncontextmenu = e => { e.preventDefault(); if (!P.panel) setHidden(!P.hidden); };
 }
 function playerKey(e) {
+  const ml = $('.modal.mlog');
+  if (ml) { if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); ml.remove(); } return; }
   if ($('.modal')) return;
   const k = e.key;
   if (P.hidden) { if (k === 'Enter' || k === 'Escape' || k === ' ' || k === 'h' || k === 'H') { e.preventDefault(); setHidden(false); } return; }
@@ -126,7 +130,7 @@ async function showWorkTitle() {
         okBm ? btn('book', 'つづきから', () => { clearPanel(); loadState(bm); }) : btnOff('book', 'つづきから', 'まだ、しおりがありません'),
         btn('load', 'ロード', () => saveLoadPanel('load')),
         endListOn(w) ? btn('flag', 'エンディング', () => openEndList()) : null)),
-    btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
+    P.view ? null : btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
   showPanel(p);
 }
 function showPanel(p) { clearPanel(); P.panel = p; $('#scr-play').appendChild(p); }
@@ -342,7 +346,7 @@ async function endPanel(name, stuck) {
     h('div', { class: 'dlg-btns' },
       btn('refresh', 'はじめから', () => { clearPanel(); P.w.opts.title ? showWorkTitle() : restart(); }),
       useList ? btn('flag', 'エンディング', () => openEndList()) : null,
-      btn('back', P.test ? '作る画面へ' : '作品えらびへ', () => playerBack()))));
+      P.view ? null : btn('back', P.test ? '作る画面へ' : '作品えらびへ', () => playerBack()))));
   showPanel(p);
 }
 /* ---- エンディングリスト ---- */
@@ -390,19 +394,20 @@ function openLog() {
   toggleAuto(false); toggleSkip(false);
   const items = P.log.filter(x => x.c || x.t.trim());
   if (!items.length) { toast('まだログがありません'); return; }
-  const per = 8, pages = Math.ceil(items.length / per);
-  let page = pages - 1, m;
-  const useName = !isNovel() && P.w.opts.name;
-  const body = h('div', { class: 'loglist' + (useName ? '' : ' noname') }), nav = h('div', { class: 'log-nav' });
-  const draw = () => {
-    body.innerHTML = '';
-    items.slice(page * per, page * per + per).forEach(x => body.appendChild(x.c
-      ? h('div', { class: 'log-row ch' }, h('div', { class: 'log-n' }, ic('check', 18), 'えらんだ'), h('div', { class: 'log-t' }, x.c))
+  const novel = isNovel(), useName = !novel && P.w.opts.name;
+  const list = h('div', { class: 'loglist' + (novel ? ' novel' : '') + (useName ? '' : ' noname') });
+  items.forEach(x => list.appendChild(novel
+    ? h('div', { class: 'nl-line' + (x.c ? ' ch' : '') }, x.c ? '▶ ' + x.c : x.t)
+    : x.c ? h('div', { class: 'log-row ch' }, h('div', { class: 'log-n' }, ic('check', 18), 'えらんだ'), h('div', { class: 'log-t' }, x.c))
       : h('div', { class: 'log-row' }, useName ? h('div', { class: 'log-n' }, x.n || '') : null, h('div', { class: 'log-t' }, x.t))));
-    drawNav(nav, page, pages, p => { page = p; draw(); });
-  };
-  draw();
-  m = openModal(h('div', { class: 'dlg dlg-log' }, h('div', { class: 'dlg-title' }, 'ログ（これまでのお話）'), body, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
+  let m;
+  const close = () => closeModal(m);
+  m = openModal(h('div', { class: 'dlg dlg-log' },
+    h('div', { class: 'log-head' }, h('div', { class: 'dlg-title' }, 'ログ（これまでのお話）'), btn('x', 'とじる', close, 'sm')),
+    list), { close: true });
+  m.classList.add('mlog');
+  m.oncontextmenu = e => { e.preventDefault(); close(); };
+  requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
 }
 function toggleAuto(v) { P.auto = v ?? !P.auto; if (P.auto) P.skip = false; updBar(); if (P.auto && !P.typing && !P.panel && !choicesShown()) afterStep(); }
 function toggleSkip(v) {
@@ -411,6 +416,7 @@ function toggleSkip(v) {
 }
 function updBar() { const a = $('#pb-auto'), s = $('#pb-skip'); if (a) a.classList.toggle('on', P.auto); if (s) s.classList.toggle('on', P.skip); }
 function playerBack() {
+  if (P.view) return;
   stopTyping(); stopBGM(); toggleAuto(false); P.skip = false; clearPanel(); clearWeather();
   $('#stage').classList.remove('playing');
   setStageW(1280);

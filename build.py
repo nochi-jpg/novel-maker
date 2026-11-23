@@ -17,8 +17,8 @@ for c, n in CH:
     for p in ps:
         k = int(p.stem.split('_')[1])
         ch.append({'id': 'I:' + p.stem, 'c': c, 'name': n + '（' + POSE[k] + '）', 'pose': POSE[k], 'data': b64(p, 'image/webp')})
-samples = ('const SAMPLE_BG=' + json.dumps(bg, ensure_ascii=False) + ';\nconst SAMPLE_CH=' + json.dumps(ch, ensure_ascii=False) +
-           ';\nconst SAMPLE_CHARS=' + json.dumps(chars, ensure_ascii=False) + ';\nconst LOGO_SRC=' + json.dumps(b64(root / 'assets/logo.png', 'image/png')) + ';\n')
+samples = ('/*NM-SAMPLES{*/\nconst SAMPLE_BG=' + json.dumps(bg, ensure_ascii=False) + ';\nconst SAMPLE_CH=' + json.dumps(ch, ensure_ascii=False) +
+           ';\nconst SAMPLE_CHARS=' + json.dumps(chars, ensure_ascii=False) + ';\nconst LOGO_SRC=' + json.dumps(b64(root / 'assets/logo.png', 'image/png')) + ';\n/*}NM-SAMPLES*/\n')
 html = (src / 'index.html').read_text(encoding='utf-8')
 import re
 css = (src / 'style.css').read_text(encoding='utf-8')
