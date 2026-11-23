@@ -215,61 +215,62 @@ function targetBtn(cur, set, wdt) {
   return bt;
 }
 function blockPanel() {
-  const w = E.w, b = curB(), e = b.end;
+  // 右の設定パネル：8px 単位で配置（x=16、はば 360）
+  const w = E.w, b = curB(), e = b.end, X = 16, W = 360;
   const p = h('div', { class: 'panel' }); p.style.cssText = 'left:872px;top:8px;width:392px;height:584px';
-  pin(p, h('div', { class: 'p-h' }, 'ブロック ' + blockLabel(w, b) + ' の設定'), 14, 10, 360, 32);
+  pin(p, h('div', { class: 'p-h' }, 'ブロック ' + blockLabel(w, b) + ' の設定'), X, 12, W, 32);
   const iss = (E.chk && E.chk.issues[b.id]) || [];
-  pin(p, h('div', { class: 'bp-iss' + (iss.length ? ' bad' : '') }, ic(iss.length ? ISSUE[iss[0].type].icon : 'check'),
-    h('span', { style: 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, iss.length ? `問題が ${iss.length} こあります` : '問題はありません'),
-    iss.length ? btn('info', 'くわしく見る', () => showIssues(b), 'xs') : null), 14, 40, 360, 30);
-  pin(p, btn('text', '文章を書く', () => goStep('text'), 'sm'), 14, 74, 176, 42);
-  pin(p, btn('wand', '絵と音をつける', () => goStep('fx'), 'sm'), 198, 74, 176, 42);
-  pin(p, h('div', { class: 'p-cap' }, '読みおわったら どうする？'), 14, 128, 360, 24);
+  pin(p, h('div', { class: 'iss-bar' + (iss.length ? ' bad' : '') }, ic(iss.length ? ISSUE[iss[0].type].icon : 'check'),
+    h('span', { class: 'iss-bar-t' }, iss.length ? `問題が ${iss.length} こあります` : '問題はありません'),
+    iss.length ? btn('info', 'くわしく', () => showIssues(b), 'xs') : null), X, 52, W, 40);
+  pin(p, btn('text', '文章を書く', () => goStep('text'), 'sm'), X, 104, 176, 42);
+  pin(p, btn('wand', '絵と音をつける', () => goStep('fx'), 'sm'), X + 184, 104, 176, 42);
+  pin(p, h('div', { class: 'p-cap' }, '読みおわったら どうする？'), X, 160, W, 24);
   const grid = h('div', { class: 'opt-grid' });
   const types = [['next', '次へ進む', 'arrow', null], ['choice', '選択肢を出す', 'branch', w.opts.branch ? null : '「しあげ・送る」で分岐を「する」にすると使えます'],
     ['cond', '条件で分ける', 'cond', w.opts.flag ? null : '「しあげ・送る」でイベントフラグを「使う」にすると使えます'], ['end', 'おわりにする', 'end', null]];
   types.forEach(([t, lb, icn, off]) => {
-    if (off) { grid.appendChild(btnOff(icn, lb, off)); return; }
-    grid.appendChild(btn(e.type === t ? 'check' : icn, lb, () => { if (t === 'cond' && !e.rules.length) e.rules.push({ groups: [[]], to: null }); e.type = t; markDirty(true); }, e.type === t ? 'on' : ''));
+    const bt = off ? btnOff(icn, lb, off, 'sm') : btn(e.type === t ? 'check' : icn, lb, () => { if (t === 'cond' && !e.rules.length) e.rules.push({ groups: [[]], to: null }); e.type = t; markDirty(true); }, 'sm' + (e.type === t ? ' on' : ''));
+    grid.appendChild(bt);
   });
-  pin(p, grid, 14, 156, 360, 104);
+  pin(p, grid, X, 188, W, 92);
+  const Y = 296; // ここから下が、おわり方ごとの設定
   if (e.type === 'next') {
-    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k' }, '行き先'), targetBtn(e.to, id => { e.to = id; }, 272)), 14, 276, 360, 44);
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k' }, '行き先'), targetBtn(e.to, id => { e.to = id; }, 272)), X, Y, W, 42);
   }
   if (e.type === 'choice') {
     const cnt = h('div', { class: 'bp-line' }, h('div', { class: 'bp-k mid' }, '選択肢の数'),
       [2, 3].map(n => btn(e.choices.length === n ? 'check' : null, n + 'つ', () => { while (e.choices.length < n) e.choices.push({ label: '', to: null }); e.choices.length = n; markDirty(true); }, 'sm' + (e.choices.length === n ? ' on' : ''))));
-    $$('.btn', cnt).forEach(x => x.style.width = '122px');
-    pin(p, cnt, 14, 272, 360, 44);
+    $$('.btn', cnt).forEach(x => x.style.width = '124px');
+    pin(p, cnt, X, Y, W, 42);
     e.choices.forEach((c, i) => {
       const inp = h('input', { class: 'inp sm', maxlength: 24, value: c.label, placeholder: '選択肢' + CHOICE_ABC[i] + 'の文字' });
       inp.oninput = () => { c.label = inp.value; markDirty(); };
-      pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'abc c' + i }, CHOICE_ABC[i]), inp, targetBtn(c.to, id => { c.to = id; }, 112)), 14, 324 + i * 52, 360, 44);
+      pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'abc c' + i }, CHOICE_ABC[i]), inp, targetBtn(c.to, id => { c.to = id; }, 112)), X, Y + 50 + i * 50, W, 42);
     });
   }
   if (e.type === 'cond') {
     e.rules.forEach((r, i) => {
       pin(p, h('div', { class: 'bp-rule' },
         h('button', { class: 'rule-txt', onclick: () => editRule(b, i) }, h('b', null, '条件' + (i + 1) + '　'), ruleText(w, r)),
-        targetBtn(r.to, id => { r.to = id; }, 100)), 14, 272 + i * 56, 360, 50);
+        targetBtn(r.to, id => { r.to = id; }, 104)), X, Y + i * 56, W, 48);
     });
-    const ay = 272 + e.rules.length * 56;
-    pin(p, e.rules.length < 3 ? btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'sm')
-      : btnOff('plus', '条件をふやす', '条件は3つまでです', 'sm'), 14, ay, 360, 40);
+    let y = Y + e.rules.length * 56;
+    if (e.rules.length < 3) { pin(p, btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'xs'), X, y, W, 34); y += 42; }
     const need = !E.chk || E.chk.elseUsed[b.id] !== false;
-    const eb = targetBtn(e.else, id => { e.else = id; }, 146);
+    const eb = targetBtn(e.else, id => { e.else = id; }, 152);
     if (!need && !e.else) { eb.querySelector('.tg-l').textContent = 'なくてOK'; eb.classList.add('okbtn'); eb.title = 'どのルートも条件のどれかに当てはまるので、行き先はなくても大丈夫です'; }
-    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb), 14, ay + 48, 360, 44);
-    if (!need && !e.else && e.rules.length < 3) pin(p, h('div', { class: 'hint', style: 'font-size:14px;color:var(--ok);font-weight:bold' }, 'どのルートも条件のどれかに当てはまるので、なくてもOK'), 14, ay + 94, 360, 22);
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb), X, y, W, 42);
   }
   if (e.type === 'end') {
     const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
     inp.oninput = () => { e.name = inp.value; markDirty(); };
-    pin(p, h('div', { class: 'p-cap' }, 'エンディングの名前'), 14, 276, 360, 24);
-    pin(p, inp, 14, 304, 360, 42);
-    pin(p, h('div', { class: 'hint' }, 'ここでお話がおしまいになります。'), 14, 354, 360, 24);
+    pin(p, h('div', { class: 'p-cap' }, 'エンディングの名前'), X, Y, W, 24);
+    pin(p, inp, X, Y + 28, W, 42);
+    pin(p, h('div', { class: 'hint' }, 'ここでお話がおしまいになります。'), X, Y + 78, W, 24);
   }
-  pin(p, b.ep > 1 ? btn('trash', 'このブロックを消す', () => removeBlock(b), 'sm dng') : btnOff('trash', 'このブロックを消す', '最初のブロックは消せません', 'sm'), 174, 532, 200, 40);
+  pin(p, h('div', { class: 'bp-sep' }), X, 520, W, 2);
+  pin(p, b.ep > 1 ? btn('trash', 'このブロックを消す', () => removeBlock(b), 'sm dng') : btnOff('trash', 'このブロックを消す', '最初のブロックは消せません', 'sm'), X + W - 200, 530, 200, 42);
   return p;
 }
 /* 条件の編集 */
