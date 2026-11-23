@@ -1,0 +1,59 @@
+/* ===== icons（線のSVGアイコン。絵文字は使わない） ===== */
+const ICONS = {
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  prev: '<path d="M15 5l-7 7 7 7"/>',
+  next: '<path d="M9 5l7 7-7 7"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  play: '<path d="M7 4l13 8-13 8z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',
+  load: '<path d="M3 7h6l2 2h10v11H3z"/><path d="M12 12v6M9 15l3 3 3-3"/>',
+  down: '<path d="M12 4v11M7 10l5 5 5-5M4 20h16"/>',
+  up: '<path d="M12 16V5M7 10l5-5 5 5M4 20h16"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 5-7 8-7s7 2 8 7"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  bell: '<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  eyeoff: '<path d="M3 3l18 18"/><path d="M10.6 6.1A9.7 9.7 0 0112 6c5 0 9 6 9 6a16 16 0 01-3 3.5M6.5 7.5C4.3 9 3 12 3 12s4 6 9 6a8.6 8.6 0 004-1"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  skip: '<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/>',
+  auto: '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>',
+  map: '<rect x="3" y="4" width="6" height="5" rx="1"/><rect x="15" y="4" width="6" height="5" rx="1"/><rect x="15" y="15" width="6" height="5" rx="1"/><path d="M9 6.5h6M18 9v6"/>',
+  text: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  wand: '<path d="M4 20L16 8M14 4v3M19 9h3M18 4l-2 2M10 3l.5 1.5M20 14l1.5.5"/>',
+  box: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
+  sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  link: '<path d="M10 14a4 4 0 006 0l3-3a4 4 0 00-6-6l-1 1"/><path d="M14 10a4 4 0 00-6 0l-3 3a4 4 0 006 6l1-1"/>',
+  flag: '<path d="M5 21V4h12l-2 4 2 4H5"/>',
+  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+  stop: '<circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',
+  home: '<path d="M3 11l9-8 9 8M5 9v12h14V9"/>',
+  book: '<path d="M4 4h7a2 2 0 012 2v14a2 2 0 00-2-2H4zM20 4h-7a2 2 0 00-2 2v14a2 2 0 012-2h7z"/>',
+  branch: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 4-12 7"/>',
+  arrow: '<path d="M4 12h15M14 6l6 6-6 6"/>',
+  cond: '<path d="M12 3l8 9-8 9-8-9z"/><path d="M12 9v4M12 15.5v.5"/>',
+  end: '<path d="M5 21V4h12l-2 4 2 4H5"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M19 6a8 8 0 010 12"/>',
+  zap: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  arrowup: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  arrowdown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V4H3v13h5"/>',
+  palette: '<path d="M12 3a9 9 0 100 18c1.5 0 2-1 2-2s-1-2 0-3 3 0 4-1 3-2 3-4c0-4.5-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>',
+  loop: '<path d="M4 12a8 8 0 0114-5l2 2M20 12a8 8 0 01-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  refresh: '<path d="M4 12a8 8 0 0114-5l2 2M20 4v5h-5"/>',
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-4"/>'
+};
+function ic(name, size) {
+  const span = document.createElement('span');
+  span.className = 'ic';
+  if (size) span.style.cssText = `width:${size}px;height:${size}px`;
+  span.innerHTML = `<svg viewBox="0 0 24 24" ${size ? `width="${size}" height="${size}"` : ''} fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
+  return span;
+}
