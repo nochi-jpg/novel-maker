@@ -1600,6 +1600,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .bp-sep{background:var(--line);border-radius:1px}
 .bp-line .btn.tgt{height:42px}
 
+.cond-sum{font-size:calc(15px*var(--uis,1));line-height:1.6;color:var(--tx);background:var(--bg);border-radius:8px;padding:0 10px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.dlg-cond{width:1180px;height:660px;display:flex;flex-direction:column;padding:20px 24px}
+.dlg-cond .dlg-title{font-size:calc(20px*var(--uis,1));margin-bottom:10px}
+.ce-body{flex:1;display:flex;flex-direction:column;gap:4px}
+.ce-row{display:flex;align-items:center;gap:8px;height:46px;flex:none}
+.ce-no{width:64px;flex:none;font-size:calc(17px*var(--uis,1));font-weight:bold;color:var(--brand)}
+.ce-no.wide{width:200px}
+.ce-txt{height:42px!important}
+.ce-note{flex:1;min-width:0;font-size:calc(15px*var(--uis,1));color:var(--warn);font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce-note.ok{color:var(--ok)}
+.ce-else{border-top:2px solid var(--line);padding-top:8px;height:58px;margin-top:4px}
+.ce-arrow{color:var(--pri-d);display:flex}
+.dlg-cond .dlg-btns{margin-top:8px}
+
 </style>
 </head>
 <body>
@@ -3225,20 +3239,16 @@ function blockPanel() {
     });
   }
   if (e.type === 'cond') {
-    e.rules.forEach((r, i) => {
-      pin(p, h('div', { class: 'bp-rule' },
-        h('button', { class: 'rule-txt', onclick: () => editRule(b, i) }, h('b', null, '条件' + (i + 1) + '　'), ruleText(w, r)),
-        targetBtn(r.to, id => { r.to = id; }, 104)), X, Y + i * 56, W, 48);
-    });
-    let y = Y + e.rules.length * 56;
-    if (e.rules.length < 3) { pin(p, btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'xs'), X, y, W, 34); y += 42; }
-    const need = !E.chk || E.chk.elseUsed[b.id] !== false;
-    const has = !!(e.else && w.blocks[e.else]);
+    const lb = id => id && w.blocks[id] ? blockLabel(w, w.blocks[id]) : '？';
+    pin(p, h('div', { class: 'p-cap' }, `条件 ${e.rules.length}つ（上から順に調べます）`), X, Y, W, 24);
+    pin(p, h('div', { class: 'cond-sum' }, e.rules.length ? e.rules.map((r, i) => `条件${i + 1} → ${lb(r.to)}`).join('　') : 'まだ条件がありません'), X, Y + 28, W, 48);
+    pin(p, btn('cond', '条件分岐を編集する', () => openCondEditor(b), 'sm'), X, Y + 84, W, 42);
+    const need = !E.chk || E.chk.elseUsed[b.id] !== false, has = !!(e.else && w.blocks[e.else]);
     const eb = targetBtn(e.else, id => { e.else = id; }, has ? 112 : 152);
     if (!need && !e.else) { eb.querySelector('.tg-l').textContent = 'なくてOK'; eb.classList.add('okbtn'); eb.title = 'どのルートも条件のどれかに当てはまるので、行き先はなくても大丈夫です'; }
     const clr = has ? btn('x', null, () => { e.else = null; markDirty(true); guide(need ? '行き先を消しました（どれにも当てはまらないルートがあるので、問題として表示されます）' : '行き先を消しました'); }, 'sm dng') : null;
     if (clr) { clr.style.width = '32px'; clr.style.padding = '0'; clr.title = '行き先を消す'; }
-    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb, clr), X, y, W, 42);
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb, clr), X, Y + 142, W, 42);
   }
   if (e.type === 'end') {
     const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
@@ -3251,8 +3261,55 @@ function blockPanel() {
   pin(p, b.ep > 1 ? btn('trash', 'このブロックを消す', () => removeBlock(b), 'sm dng') : btnOff('trash', 'このブロックを消す', '最初のブロックは消せません', 'sm'), X + W - 200, 530, 200, 42);
   return p;
 }
+/* 条件分岐の編集（条件は8つまで） */
+const MAX_RULES = 8;
+function openCondEditor(b) {
+  const w = E.w, e = b.end;
+  const blocks = blocksSorted(w).filter(x => x.id !== b.id);
+  const opts = [['', '（行き先をえらぶ）'], ...blocks.map(x => [x.id, 'ブロック ' + blockLabel(w, x) + '　' + (x.text.trim().split('\n')[0] || '').slice(0, 14)])];
+  const sel = (val, on, wdt, first) => {
+    const s2 = h('select', { class: 'sel', style: `width:${wdt}px` }, (first ? [[ '', first ], ...opts.slice(1)] : opts).map(([v, t]) => { const o = h('option', { value: v }, t); if (v === (val || '')) o.selected = true; return o; }));
+    s2.onchange = () => { on(s2.value || null); markDirty(); draw(); }; return s2;
+  };
+  let m;
+  const body = h('div', { class: 'ce-body' });
+  function draw() {
+    body.innerHTML = '';
+    if (!E.chk) E.chk = analyze(w);
+    e.rules.forEach((r, i) => {
+      const up = i > 0 ? btn('arrowup', null, () => { [e.rules[i - 1], e.rules[i]] = [e.rules[i], e.rules[i - 1]]; markDirty(); draw(); }, 'xs') : btnOff('arrowup', null, 'いちばん上です', 'xs');
+      const dn = i < e.rules.length - 1 ? btn('arrowdown', null, () => { [e.rules[i + 1], e.rules[i]] = [e.rules[i], e.rules[i + 1]]; markDirty(); draw(); }, 'xs') : btnOff('arrowdown', null, 'いちばん下です', 'xs');
+      body.appendChild(h('div', { class: 'ce-row' },
+        h('div', { class: 'ce-no' }, '条件' + (i + 1)),
+        h('button', { class: 'rule-txt ce-txt', onclick: () => editRule(b, i, draw) }, ruleText(w, r)),
+        up, dn, h('span', { class: 'ce-arrow' }, ic('arrow')),
+        sel(r.to, v => { r.to = v; }, 250),
+        btn('trash', null, async () => { if (await okAsk(`条件${i + 1}を消しますか？`)) { e.rules.splice(i, 1); markDirty(); draw(); } }, 'xs dng')));
+    });
+    if (!e.rules.length) body.appendChild(h('div', { class: 'lib-empty' }, 'まだ条件がありません。「条件をふやす」で作ります。'));
+    const need = E.chk.elseUsed[b.id] !== false;
+    body.appendChild(h('div', { class: 'ce-row ce-else' },
+      h('div', { class: 'ce-no wide' }, 'どれにも当てはまらない'),
+      h('div', { class: 'ce-note' + (need ? '' : ' ok') }, need ? '当てはまらないルートがあるときは、ここへ進みます' : 'どのルートも条件に当てはまるので、なくてもOK'),
+      h('span', { class: 'ce-arrow' }, ic('arrow')),
+      sel(e.else, v => { e.else = v; }, 250, need ? '（行き先をえらぶ）' : '（なし）'),
+      e.else ? btn('x', null, () => { e.else = null; markDirty(); draw(); }, 'xs dng') : h('span', { style: 'width:34px' })));
+    $$('.ce-row .btn.xs', body).forEach(x => x.style.width = '34px');
+  }
+  draw();
+  const add = () => e.rules.length < MAX_RULES
+    ? btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(); draw(); editRule(b, e.rules.length - 1, () => { draw(); refreshAdd(); }); refreshAdd(); })
+    : btnOff('plus', '条件をふやす', `条件は${MAX_RULES}つまでです`);
+  const addBox = h('span', null);
+  const refreshAdd = () => { addBox.innerHTML = ''; addBox.appendChild(add()); };
+  refreshAdd();
+  m = openModal(h('div', { class: 'dlg dlg-cond' },
+    h('div', { class: 'dlg-title' }, `ブロック ${blockLabel(w, b)} の条件分岐（上から順に調べて、はじめに当てはまった行き先へ進みます）`),
+    body,
+    h('div', { class: 'dlg-btns' }, addBox, btn('check', 'できた', () => { closeModal(m); markDirty(true); }, 'pri'))));
+}
 /* 条件の編集 */
-function editRule(b, ri) {
+function editRule(b, ri, after) {
   const w = E.w, r = clone(b.end.rules[ri]);
   if (!r.groups.length) r.groups.push([]);
   let m;
@@ -3293,8 +3350,8 @@ function editRule(b, ri) {
     h('div', { class: 'dlg-title' }, `ブロック ${blockLabel(w, b)} の 条件${ri + 1}：当てはまったら ${r.to && w.blocks[r.to] ? blockLabel(w, w.blocks[r.to]) + ' へ' : '（行き先はマップでえらぶ）'}`),
     cols,
     h('div', { class: 'dlg-btns' },
-      btn('check', 'OK', () => { r.groups = r.groups.filter(g => g.length || r.groups.length === 1); b.end.rules[ri] = r; closeModal(m); markDirty(true); }, 'pri'),
-      btn('trash', 'この条件を消す', () => { closeModal(m); b.end.rules.splice(ri, 1); if (!b.end.rules.length) b.end.type = 'end'; markDirty(true); }, 'dng'),
+      btn('check', 'OK', () => { r.groups = r.groups.filter(g => g.length || r.groups.length === 1); b.end.rules[ri] = r; closeModal(m); markDirty(true); if (after) after(); }, 'pri'),
+      btn('trash', 'この条件を消す', () => { closeModal(m); b.end.rules.splice(ri, 1); markDirty(true); if (after) after(); }, 'dng'),
       btn('x', 'やめる', () => closeModal(m)))));
 }
 /* ---------- ブロックの切りかえ ---------- */
