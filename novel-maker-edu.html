@@ -1621,6 +1621,29 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .cond-pg{flex:1;text-align:center;font-size:calc(16px*var(--uis,1));font-weight:bold;color:var(--sub)}
 .dlg-rule .dlg-btns .btn{min-width:150px}
 
+.panel.over{outline:4px dashed #1c7ed6;outline-offset:-4px;background:#eef5ff}
+.p-hint{margin-left:auto;font-size:calc(13px*var(--uis,1));font-weight:normal;color:var(--sub);display:flex;align-items:center;gap:2px}
+.pend-new{display:inline-flex;align-items:center;gap:8px;font-size:calc(22px*var(--uis,1));font-weight:bold;margin-top:10px;padding:4px 18px;border-radius:999px;background:var(--wui-d);color:#ffd43b;font-family:var(--pfont,var(--ftx))}
+.dlg-log{width:880px}
+.loglist,.endlist{display:flex;flex-direction:column;gap:6px;height:442px}
+.endlist{height:360px}
+.log-row,.end-row{display:flex;align-items:center;gap:14px;height:50px;padding:0 16px;border-radius:10px;background:#fff;border:2px solid var(--line);color:var(--tx);font-family:var(--pfont,var(--ftx))}
+.end-row{height:55px}
+.log-n{flex:none;width:120px;display:flex;align-items:center;gap:4px;font-size:calc(16px*var(--uis,1));font-weight:bold;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-t{flex:1;min-width:0;font-size:calc(17px*var(--uis,1));line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.log-row.ch .log-t{font-weight:bold}
+.end-n{flex:none;width:40px;font-size:calc(22px*var(--uis,1));font-weight:bold;text-align:center}
+.end-t{flex:1;font-size:calc(24px*var(--uis,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.end-row.no{opacity:.55}
+.log-nav{display:flex;align-items:center;gap:12px;margin-top:10px}
+.log-nav .btn{width:140px}
+.log-pg{flex:1;text-align:center;font-size:calc(20px*var(--uis,1));font-weight:bold}
+#stage.playing .modal .log-row,#stage.playing .modal .end-row{background:var(--wui-d);border-color:var(--wui-l);color:var(--wtx)}
+#stage.playing .modal .log-n{color:var(--wtx);opacity:.75}
+#stage.playing .modal .log-row.ch{border-color:var(--wch)}
+.loglist.noname .log-row.ch .log-n{width:110px}
+.wk-row .btn,.wk-row .inp,.wk-row .wk-val{height:34px!important;min-height:34px}
+
 </style>
 </head>
 <body>
@@ -1822,6 +1845,7 @@ const ICONS = {
   end: '<path d="M5 21V4h12l-2 4 2 4H5"/>',
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M19 6a8 8 0 010 12"/>',
   zap: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  log: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
   arrowup: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   arrowdown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V4H3v13h5"/>',
@@ -1917,6 +1941,7 @@ function fixWork(w) {
   w.folders = w.folders || {}; for (const k of ['bg', 'ch', 'se', 'bgm']) w.folders[k] = w.folders[k] || [];
   for (const m of w.media) if (m.folder == null) m.folder = '';
   w.opts.mode = w.opts.mode || 'window';
+  if (w.opts.endList == null) w.opts.endList = true;
   w.theme = Object.assign({}, DEF_THEME, { win: w.theme.ui, ch: w.theme.ui }, w.theme);
   return w;
 }
@@ -2601,7 +2626,7 @@ function analyze(w) {
 }
 
 /* ===== 見る（再生） ===== */
-const P = { w: null, b: null, pages: [], pi: 0, si: 0, entry: null, hist: [], typing: null, auto: false, skip: false, hidden: false, test: false, onBack: null, read: new Set(), waiting: null, panel: null, chSel: 0 };
+const P = { w: null, b: null, pages: [], pi: 0, si: 0, entry: null, hist: [], typing: null, auto: false, skip: false, hidden: false, test: false, onBack: null, read: new Set(), waiting: null, panel: null, chSel: 0, log: [], logRows: new Set(), logLi: {} };
 const ALPHAS = [0.92, 0.78, 0.6, 0.4];
 const ALPHA_NAMES = ['こい', 'ふつう', 'うすい', 'すけすけ'];
 function hexRgb(hx) { const n = parseInt(hx.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -2626,7 +2651,7 @@ const stageWOf = w => w.ratio === '4:3' ? 960 : 1280;
 const isNovel = () => P.w && P.w.opts.mode === 'novel';
 async function playWork(w, opts = {}) {
   auInit(); stopBGM();
-  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null });
+  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null, log: [] });
   fixWork(w);
   if (opts.loadMedia !== false) await loadMediaFor(w);
   const rd = await dbGet('saves', w.id + ':read'); P.read = new Set(rd || []);
@@ -2668,9 +2693,9 @@ function buildPlayer() {
       h('div', { class: 'pwin', id: 'pwin', style: `left:${m.x}px;width:${m.w}px;height:${m.h}px;top:${m.y}px;padding:${WIN_PAD_Y}px ${WIN_PAD_X}px;font-size:${m.fs}px;line-height:${LH}` }, h('div', { class: 'ptext', id: 'ptext' })),
       h('div', { class: 'pmark', id: 'pmark', style: `left:${m.x}px;width:${m.w}px;top:${m.y + m.h + 6}px` }, h('span', { id: 'pnum' }), h('span', { class: 'tri', id: 'ptri' }, '▼')));
   }
-  const bw = W === 960 ? 106 : 132, gap = W === 960 ? 6 : 12;
+  const bw = W === 960 ? 96 : 128, gap = W === 960 ? 7 : 11;
   const bar = h('div', { class: 'pbar', id: 'pbar' });
-  const defs = [['back', 'もどる', () => playerBack()], ['prev', 'まえ', () => prevPage()], ['skip', 'スキップ', () => toggleSkip()], ['auto', 'オート', () => toggleAuto()],
+  const defs = [['back', 'もどる', () => playerBack()], ['prev', 'まえ', () => prevPage()], ['log', 'ログ', () => openLog()], ['skip', 'スキップ', () => toggleSkip()], ['auto', 'オート', () => toggleAuto()],
     ['save', 'セーブ', () => saveLoadPanel('save')], ['load', 'ロード', () => saveLoadPanel('load')], ['eyeoff', 'かくす', () => setHidden(true)], ['gear', '設定', () => openSettings()]];
   defs.forEach(([icn, lb, fn], i) => {
     const x = i === defs.length - 1 ? W - 20 - bw : 20 + i * (bw + gap);
@@ -2681,6 +2706,7 @@ function buildPlayer() {
   const wm = winMetrics(W);
   scr.append(bar, h('div', { class: 'pchoices', id: 'pchoices', style: `top:84px;height:${wm.y - 100}px` }));
   scr.onpointerdown = e => { if (e.button === 2) return; if (e.target.closest('button,.modal,.ppanel,.nchoice')) return; auInit(); clickAdvance(); };
+  scr.onwheel = e => { if (e.deltaY < 0 && !P.panel && !P.hidden && !$('.modal')) openLog(); };
   scr.oncontextmenu = e => { e.preventDefault(); if (!P.panel) setHidden(!P.hidden); };
 }
 function playerKey(e) {
@@ -2697,6 +2723,7 @@ function playerKey(e) {
   const chs = $$('#pchoices button');
   if (chs.length && /^[1-3]$/.test(k)) { const b = chs[+k - 1]; if (b) b.click(); return; }
   if (k === 'Enter' || k === ' ' || k === 'ArrowRight') { e.preventDefault(); clickAdvance(); }
+  else if (k === 'ArrowUp' && !P.panel) openLog();
   else if (k === 'ArrowLeft') prevPage();
   else if (k === 'h' || k === 'H') setHidden(true);
 }
@@ -2724,19 +2751,20 @@ async function showWorkTitle() {
       h('div', { class: 'ptitle-btns' },
         btn('play', 'はじめから', () => { clearPanel(); restart(); }),
         okBm ? btn('book', 'つづきから', () => { clearPanel(); loadState(bm); }) : btnOff('book', 'つづきから', 'まだ、しおりがありません'),
-        btn('load', 'ロード', () => saveLoadPanel('load')))),
+        btn('load', 'ロード', () => saveLoadPanel('load')),
+        endListOn(w) ? btn('flag', 'エンディング', () => openEndList()) : null)),
     btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
   showPanel(p);
 }
 function showPanel(p) { clearPanel(); P.panel = p; $('#scr-play').appendChild(p); }
 function clearPanel() { if (P.panel) P.panel.remove(); P.panel = null; }
 function restart() {
-  P.hist = []; stopBGM(); clearPanel();
+  P.hist = []; P.log = []; stopBGM(); clearPanel();
   enterBlock(startBlock(P.w).id, emptyVis(), 0);
 }
 /* ---- ブロック・ページ・ステップ ---- */
 function enterBlock(bid, entry, li = 0, pushHist = true) {
-  P.b = bid; P.entry = clone(entry);
+  P.b = bid; P.entry = clone(entry); P.logRows = new Set(); P.logLi = {};
   if (pushHist) P.hist.push({ b: bid });
   P.pages = paginateW(P.w, P.w.blocks[bid]);
   if (!li) { showPage(0); return; }
@@ -2760,7 +2788,7 @@ function showPage(pi, instant, upto = 0) {
   P.si = upto;
   typeStep(page.steps[upto], instant || P.skip || sv('speed') === 0);
 }
-function saveBookmark() { if (!P.test && P.b) dbPut('saves', { b: P.b, li: curStepLi(), entry: P.entry, hist: P.hist, date: Date.now() }, P.w.id + ':bm'); }
+function saveBookmark() { if (!P.test && P.b) dbPut('saves', { b: P.b, li: curStepLi(), entry: P.entry, hist: P.hist, log: P.log, date: Date.now() }, P.w.id + ':bm'); }
 function renderVis(vis) {
   const fade = P.skip ? 80 : 420;
   setLayer($('#lay-bg'), vis.bg, mediaSrc(vis.bg), null, fade);
@@ -2824,6 +2852,7 @@ function typeStep(step, instant, quiet) {
     let ch = false; for (const r of step.rows) { const k = P.b + ':' + r.li; if (!P.read.has(k)) { P.read.add(k); ch = true; } }
     if (ch) saveRead();
     if (quiet) return;
+    logStep(step);
     $('#ptri').style.visibility = 'visible';
     saveBookmark();
     afterStep();
@@ -2919,19 +2948,88 @@ function chooseNovel(i) {
 function clearChoices() { const b = $('#pchoices'); if (b) b.innerHTML = ''; }
 function choose(i) {
   const last = P.hist[P.hist.length - 1]; if (last) last.c = i;
+  const c = curBlock().end.choices[i]; pushLog({ c: c.label || ('選択肢' + CHOICE_ABC[i]) });
   clearChoices();
   goTo(curBlock().end.choices[i].to);
 }
-function endPanel(name, stuck) {
+async function endPanel(name, stuck) {
   toggleAuto(false); toggleSkip(false);
   if (!P.test) dbDel('saves', P.w.id + ':bm');
+  const list = endsOf(P.w), useList = endListOn(P.w);
+  let isNew = false, got = [];
+  if (!stuck) {
+    got = await gotEnds(P.w);
+    if (!got.includes(P.b) && !P.test) { got.push(P.b); isNew = true; await dbPut('saves', got, P.w.id + ':ends'); }
+  }
+  const n = list.filter(b => got.includes(b.id)).length;
   const p = h('div', { class: 'ppanel pend' }, h('div', { class: 'dlg' },
     h('div', { class: 'pend-t' }, stuck ? 'ここで止まりました' : 'おしまい'),
     h('div', { class: 'pend-s' }, stuck ? '行き先が決まっていません（作る画面でつなげてください）' : (name ? 'エンディング：' + name : '　')),
+    useList && isNew ? h('div', { class: 'pend-new' }, ic('star'), `新しいエンディング！（${n} / ${list.length}）`) : null,
     h('div', { class: 'dlg-btns' },
       btn('refresh', 'はじめから', () => { clearPanel(); P.w.opts.title ? showWorkTitle() : restart(); }),
+      useList ? btn('flag', 'エンディング', () => openEndList()) : null,
       btn('back', P.test ? '作る画面へ' : '作品えらびへ', () => playerBack()))));
   showPanel(p);
+}
+/* ---- エンディングリスト ---- */
+function endsOf(w) { return Object.values(w.blocks).filter(b => b.end.type === 'end').sort((a, b) => a.ep - b.ep || a.slot - b.slot); }
+function endListOn(w) { return w.opts.endList !== false && endsOf(w).length >= 2; }
+async function gotEnds(w) { return (await dbGet('saves', w.id + ':ends')) || []; }
+async function openEndList() {
+  const list = endsOf(P.w), got = await gotEnds(P.w), per = 6, pages = Math.ceil(list.length / per);
+  let page = 0, m;
+  const body = h('div', { class: 'endlist' }), head = h('div', { class: 'dlg-title' }), nav = h('div', { class: 'log-nav' });
+  const draw = () => {
+    const n = list.filter(b => got.includes(b.id)).length;
+    head.textContent = `エンディング　${n} / ${list.length}`;
+    body.innerHTML = '';
+    list.slice(page * per, page * per + per).forEach((b, k) => {
+      const i = page * per + k, ok = got.includes(b.id);
+      body.appendChild(h('div', { class: 'end-row' + (ok ? '' : ' no') }, h('div', { class: 'end-n' }, String(i + 1)), h('div', { class: 'end-t' }, ok ? (b.end.name || 'エンディング' + (i + 1)) : '？？？')));
+    });
+    drawNav(nav, page, pages, p => { page = p; draw(); });
+  };
+  draw();
+  m = openModal(h('div', { class: 'dlg dlg-log' }, head, body, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
+}
+function drawNav(nav, page, pages, go) {
+  nav.innerHTML = '';
+  nav.append(page > 0 ? btn('prev', '前へ', () => go(page - 1), 'sm') : btnOff('prev', '前へ', '最初のページです', 'sm'),
+    h('div', { class: 'log-pg' }, `${page + 1} / ${pages}`),
+    page < pages - 1 ? btn('next', '次へ', () => go(page + 1), 'sm') : btnOff('next', '次へ', '最後のページです', 'sm'));
+}
+/* ---- バックログ ---- */
+const LOG_MAX = 200;
+function pushLog(x) { P.log.push(x); if (P.log.length > LOG_MAX) P.log.splice(0, P.log.length - LOG_MAX); }
+function logStep(step) {
+  if (P.logMute) { P.logMute = false; step.rows.forEach(r => P.logRows.add(r)); return; }
+  const page = P.pages[P.pi], nm = !isNovel() && P.w.opts.name ? page.name : '';
+  for (const r of step.rows) {
+    if (P.logRows.has(r)) continue; P.logRows.add(r);
+    const e = P.logLi[r.li];
+    if (e && !r.first && P.log.includes(e)) e.t += r.t;
+    else { const x = { n: nm, t: r.t }; P.logLi[r.li] = x; if (r.t.trim() || r.first) pushLog(x); }
+  }
+}
+function openLog() {
+  if (P.panel || $('.modal')) return;
+  toggleAuto(false); toggleSkip(false);
+  const items = P.log.filter(x => x.c || x.t.trim());
+  if (!items.length) { toast('まだログがありません'); return; }
+  const per = 8, pages = Math.ceil(items.length / per);
+  let page = pages - 1, m;
+  const useName = !isNovel() && P.w.opts.name;
+  const body = h('div', { class: 'loglist' + (useName ? '' : ' noname') }), nav = h('div', { class: 'log-nav' });
+  const draw = () => {
+    body.innerHTML = '';
+    items.slice(page * per, page * per + per).forEach(x => body.appendChild(x.c
+      ? h('div', { class: 'log-row ch' }, h('div', { class: 'log-n' }, ic('check', 18), 'えらんだ'), h('div', { class: 'log-t' }, x.c))
+      : h('div', { class: 'log-row' }, useName ? h('div', { class: 'log-n' }, x.n || '') : null, h('div', { class: 'log-t' }, x.t))));
+    drawNav(nav, page, pages, p => { page = p; draw(); });
+  };
+  draw();
+  m = openModal(h('div', { class: 'dlg dlg-log' }, h('div', { class: 'dlg-title' }, 'ログ（これまでのお話）'), body, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
 }
 function toggleAuto(v) { P.auto = v ?? !P.auto; if (P.auto) P.skip = false; updBar(); if (P.auto && !P.typing && !P.panel && !choicesShown()) afterStep(); }
 function toggleSkip(v) {
@@ -2947,11 +3045,11 @@ function playerBack() {
 }
 function curState() {
   const page = P.pages[P.pi];
-  return { b: P.b, li: curStepLi(), entry: clone(P.entry), hist: clone(P.hist), date: Date.now(), snip: page.steps[P.si].rows.map(r => r.t).join('').slice(0, 30), label: blockLabel(P.w, curBlock()) };
+  return { b: P.b, li: curStepLi(), entry: clone(P.entry), hist: clone(P.hist), log: clone(P.log), date: Date.now(), snip: page.steps[P.si].rows.map(r => r.t).join('').slice(0, 30), label: blockLabel(P.w, curBlock()) };
 }
 function loadState(s) {
   clearPanel(); stopBGM(); toggleAuto(false); toggleSkip(false);
-  P.hist = clone(s.hist);
+  P.hist = clone(s.hist); P.log = clone(s.log || []); P.logMute = true;
   enterBlock(s.b, s.entry, s.li, false);
 }
 /* セーブ・ロード（6つ） */
@@ -3448,13 +3546,7 @@ function renderFx(body) {
       h('div', { class: 'ln-k' }, h('div', null, `${x.li + 1}行 p${pg}`), tags), h('div', { class: 'ln-t' }, x.t));
     row.ondragover = e => { e.preventDefault(); row.classList.add('over'); };
     row.ondragleave = () => row.classList.remove('over');
-    row.ondrop = async e => {
-      e.preventDefault(); e.stopPropagation(); row.classList.remove('over'); E.li = x.li;
-      const id = e.dataTransfer.getData('text/nm-media');
-      if (id) { assignToLine(x.li, id, E.libKind); return; }
-      const fs = [...e.dataTransfer.files]; if (!fs.length) return;
-      const ids = await addMediaFiles(fs, E.libKind, true); if (ids[0]) assignToLine(x.li, ids[0], E.libKind);
-    };
+    row.ondrop = e => { e.preventDefault(); e.stopPropagation(); row.classList.remove('over'); dropToLine(x.li, e); };
     pin(P1, row, 12, 98 + i * 54, 372, 48);
   });
   if (!lines.length) pin(P1, h('div', { class: 'lib-empty' }, 'まだ文章がありません。', h('br'), '「文章を書く」で書いてから、ここに来てね。'), 12, 98, 372, 120);
@@ -3522,6 +3614,19 @@ function placeCh(li, s, id) {
   const cur = visAtLine(li).ch[s];
   return setCue(li, c => { c.ch = c.ch || {}; c.ch[s] = { m: id, s: cur ? cur.s : 1, y: cur ? cur.y : 0 }; });
 }
+/* 行へ直接ドロップ（素材ボックスの中身でも、パソコンのファイルでも）。背景か人物かは今のタブで決める */
+async function dropToLine(li, e) {
+  if (li == null) { guide('先に ① で行をえらんでください', true); return; }
+  let id = e.dataTransfer.getData('text/nm-media');
+  if (!id) {
+    const fs = [...e.dataTransfer.files]; if (!fs.length) return;
+    id = (await addMediaFiles(fs.slice(0, 1), E.libKind, true))[0]; if (!id) return;
+  }
+  const kind = libKindOf(id); if (!kind) return;
+  E.li = li;
+  assignToLine(li, id, kind);
+  guide(`${li + 1}行目${kind === 'ch' ? 'の' + SLOT_NAME[E.chSlot] : ''}に${KIND_NAME[kind]}「${mediaNameX(id)}」を入れました`);
+}
 function assignToLine(li, id, kind) {
   if (kind === 'bg') setCue(li, c => { c.bg = id; });
   else if (kind === 'ch') placeCh(li, E.chSlot, id);
@@ -3554,7 +3659,10 @@ function previewEffect(id) {
 function renderFxCheck(body, b, pages2, focus) {
   const w = E.w, li = E.li;
   const P3 = h('div', { class: 'panel' + (focus ? ' focus' : '') }); P3.style.cssText = 'left:840px;top:8px;width:424px;height:584px';
-  pin(P3, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '3'), 'たしかめる'), 12, 10, 396, 32);
+  P3.ondragover = e => { e.preventDefault(); P3.classList.add('over'); };
+  P3.ondragleave = e => { if (!P3.contains(e.relatedTarget)) P3.classList.remove('over'); };
+  P3.ondrop = e => { e.preventDefault(); e.stopPropagation(); P3.classList.remove('over'); dropToLine(li, e); };
+  pin(P3, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '3'), 'たしかめる', h('span', { class: 'p-hint' }, ic('down', 16), 'ここにドロップで、この行に入る')), 12, 10, 396, 32);
   const pw = w.ratio === '4:3' ? 264 : 352, pv = pin(P3, h('div', { class: 'prev' }), 12 + (396 - pw) / 2, 46, pw, 198);
   const vis = li != null ? visAtLine(li) : blockEntry(b.id);
   if (vis.bg && mediaSrc(vis.bg)) pv.appendChild(h('img', { class: 'bgimg', src: mediaSrc(vis.bg) }));
@@ -3745,7 +3853,7 @@ const THEMES = [
   ['こもれび', { ui: '#6b4423', win: '#fff4e0', tx: '#3a3a3a', ch: '#6b4423' }], ['ノート', { ui: '#16224a', win: '#ffffff', tx: '#1a1a1a', ch: '#1e3a7b' }]];
 function renderWorkTab(body) {
   const w = E.w, th = w.theme;
-  const row = (label, ...kids) => h('div', { class: 'wk-row', style: 'height:46px' }, h('div', { class: 'wk-l' }, label), ...kids);
+  const row = (label, ...kids) => h('div', { class: 'wk-row', style: 'height:40px' }, h('div', { class: 'wk-l' }, label), ...kids);
   const opt = (cur, list, on) => list.map(([v, lb, off]) => off && cur !== v ? btnOff(null, lb, off, 'sm') : btn(cur === v ? 'check' : null, lb, () => { if (cur !== v) on(v); }, 'sm' + (cur === v ? ' on' : '')));
   const usedBranch = Object.values(w.blocks).some(b => b.end.type === 'choice' || b.end.type === 'cond' || b.slot > 0);
   const usedCond = Object.values(w.blocks).some(b => b.end.type === 'cond');
@@ -3767,7 +3875,8 @@ function renderWorkTab(body) {
     row('タイトルの絵', btn('prev', null, () => { w.titleImg = bgs[(ti2 - 1 + bgs.length) % bgs.length]; markDirty(true); }, 'sm'),
       h('div', { class: 'wk-val' }, w.titleImg ? mediaName(w, w.titleImg) : 'なし'),
       btn('next', null, () => { w.titleImg = bgs[(ti2 + 1) % bgs.length]; markDirty(true); }, 'sm')),
-    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })));
+    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })),
+    row('エンディング一覧', ...opt(w.opts.endList !== false, [[true, '見せる'], [false, '見せない']], v => { w.opts.endList = v; markDirty(true); })));
   $$('.wk-row .btn', col).forEach(b => { b.style.width = b.textContent ? '160px' : '50px'; });
   pin(L, col, 14, 8, 590, 570);
   body.appendChild(L);

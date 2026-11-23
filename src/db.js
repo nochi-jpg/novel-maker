@@ -71,6 +71,7 @@ function fixWork(w) {
   w.folders = w.folders || {}; for (const k of ['bg', 'ch', 'se', 'bgm']) w.folders[k] = w.folders[k] || [];
   for (const m of w.media) if (m.folder == null) m.folder = '';
   w.opts.mode = w.opts.mode || 'window';
+  if (w.opts.endList == null) w.opts.endList = true;
   w.theme = Object.assign({}, DEF_THEME, { win: w.theme.ui, ch: w.theme.ui }, w.theme);
   return w;
 }

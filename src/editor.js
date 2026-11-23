@@ -452,13 +452,7 @@ function renderFx(body) {
       h('div', { class: 'ln-k' }, h('div', null, `${x.li + 1}行 p${pg}`), tags), h('div', { class: 'ln-t' }, x.t));
     row.ondragover = e => { e.preventDefault(); row.classList.add('over'); };
     row.ondragleave = () => row.classList.remove('over');
-    row.ondrop = async e => {
-      e.preventDefault(); e.stopPropagation(); row.classList.remove('over'); E.li = x.li;
-      const id = e.dataTransfer.getData('text/nm-media');
-      if (id) { assignToLine(x.li, id, E.libKind); return; }
-      const fs = [...e.dataTransfer.files]; if (!fs.length) return;
-      const ids = await addMediaFiles(fs, E.libKind, true); if (ids[0]) assignToLine(x.li, ids[0], E.libKind);
-    };
+    row.ondrop = e => { e.preventDefault(); e.stopPropagation(); row.classList.remove('over'); dropToLine(x.li, e); };
     pin(P1, row, 12, 98 + i * 54, 372, 48);
   });
   if (!lines.length) pin(P1, h('div', { class: 'lib-empty' }, 'まだ文章がありません。', h('br'), '「文章を書く」で書いてから、ここに来てね。'), 12, 98, 372, 120);
@@ -526,6 +520,19 @@ function placeCh(li, s, id) {
   const cur = visAtLine(li).ch[s];
   return setCue(li, c => { c.ch = c.ch || {}; c.ch[s] = { m: id, s: cur ? cur.s : 1, y: cur ? cur.y : 0 }; });
 }
+/* 行へ直接ドロップ（素材ボックスの中身でも、パソコンのファイルでも）。背景か人物かは今のタブで決める */
+async function dropToLine(li, e) {
+  if (li == null) { guide('先に ① で行をえらんでください', true); return; }
+  let id = e.dataTransfer.getData('text/nm-media');
+  if (!id) {
+    const fs = [...e.dataTransfer.files]; if (!fs.length) return;
+    id = (await addMediaFiles(fs.slice(0, 1), E.libKind, true))[0]; if (!id) return;
+  }
+  const kind = libKindOf(id); if (!kind) return;
+  E.li = li;
+  assignToLine(li, id, kind);
+  guide(`${li + 1}行目${kind === 'ch' ? 'の' + SLOT_NAME[E.chSlot] : ''}に${KIND_NAME[kind]}「${mediaNameX(id)}」を入れました`);
+}
 function assignToLine(li, id, kind) {
   if (kind === 'bg') setCue(li, c => { c.bg = id; });
   else if (kind === 'ch') placeCh(li, E.chSlot, id);
@@ -558,7 +565,10 @@ function previewEffect(id) {
 function renderFxCheck(body, b, pages2, focus) {
   const w = E.w, li = E.li;
   const P3 = h('div', { class: 'panel' + (focus ? ' focus' : '') }); P3.style.cssText = 'left:840px;top:8px;width:424px;height:584px';
-  pin(P3, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '3'), 'たしかめる'), 12, 10, 396, 32);
+  P3.ondragover = e => { e.preventDefault(); P3.classList.add('over'); };
+  P3.ondragleave = e => { if (!P3.contains(e.relatedTarget)) P3.classList.remove('over'); };
+  P3.ondrop = e => { e.preventDefault(); e.stopPropagation(); P3.classList.remove('over'); dropToLine(li, e); };
+  pin(P3, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '3'), 'たしかめる', h('span', { class: 'p-hint' }, ic('down', 16), 'ここにドロップで、この行に入る')), 12, 10, 396, 32);
   const pw = w.ratio === '4:3' ? 264 : 352, pv = pin(P3, h('div', { class: 'prev' }), 12 + (396 - pw) / 2, 46, pw, 198);
   const vis = li != null ? visAtLine(li) : blockEntry(b.id);
   if (vis.bg && mediaSrc(vis.bg)) pv.appendChild(h('img', { class: 'bgimg', src: mediaSrc(vis.bg) }));
@@ -749,7 +759,7 @@ const THEMES = [
   ['こもれび', { ui: '#6b4423', win: '#fff4e0', tx: '#3a3a3a', ch: '#6b4423' }], ['ノート', { ui: '#16224a', win: '#ffffff', tx: '#1a1a1a', ch: '#1e3a7b' }]];
 function renderWorkTab(body) {
   const w = E.w, th = w.theme;
-  const row = (label, ...kids) => h('div', { class: 'wk-row', style: 'height:46px' }, h('div', { class: 'wk-l' }, label), ...kids);
+  const row = (label, ...kids) => h('div', { class: 'wk-row', style: 'height:40px' }, h('div', { class: 'wk-l' }, label), ...kids);
   const opt = (cur, list, on) => list.map(([v, lb, off]) => off && cur !== v ? btnOff(null, lb, off, 'sm') : btn(cur === v ? 'check' : null, lb, () => { if (cur !== v) on(v); }, 'sm' + (cur === v ? ' on' : '')));
   const usedBranch = Object.values(w.blocks).some(b => b.end.type === 'choice' || b.end.type === 'cond' || b.slot > 0);
   const usedCond = Object.values(w.blocks).some(b => b.end.type === 'cond');
@@ -771,7 +781,8 @@ function renderWorkTab(body) {
     row('タイトルの絵', btn('prev', null, () => { w.titleImg = bgs[(ti2 - 1 + bgs.length) % bgs.length]; markDirty(true); }, 'sm'),
       h('div', { class: 'wk-val' }, w.titleImg ? mediaName(w, w.titleImg) : 'なし'),
       btn('next', null, () => { w.titleImg = bgs[(ti2 + 1) % bgs.length]; markDirty(true); }, 'sm')),
-    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })));
+    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })),
+    row('エンディング一覧', ...opt(w.opts.endList !== false, [[true, '見せる'], [false, '見せない']], v => { w.opts.endList = v; markDirty(true); })));
   $$('.wk-row .btn', col).forEach(b => { b.style.width = b.textContent ? '160px' : '50px'; });
   pin(L, col, 14, 8, 590, 570);
   body.appendChild(L);

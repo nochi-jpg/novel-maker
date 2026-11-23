@@ -1,5 +1,5 @@
 /* ===== 見る（再生） ===== */
-const P = { w: null, b: null, pages: [], pi: 0, si: 0, entry: null, hist: [], typing: null, auto: false, skip: false, hidden: false, test: false, onBack: null, read: new Set(), waiting: null, panel: null, chSel: 0 };
+const P = { w: null, b: null, pages: [], pi: 0, si: 0, entry: null, hist: [], typing: null, auto: false, skip: false, hidden: false, test: false, onBack: null, read: new Set(), waiting: null, panel: null, chSel: 0, log: [], logRows: new Set(), logLi: {} };
 const ALPHAS = [0.92, 0.78, 0.6, 0.4];
 const ALPHA_NAMES = ['こい', 'ふつう', 'うすい', 'すけすけ'];
 function hexRgb(hx) { const n = parseInt(hx.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -24,7 +24,7 @@ const stageWOf = w => w.ratio === '4:3' ? 960 : 1280;
 const isNovel = () => P.w && P.w.opts.mode === 'novel';
 async function playWork(w, opts = {}) {
   auInit(); stopBGM();
-  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null });
+  Object.assign(P, { w, b: null, pages: [], pi: 0, si: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null, log: [] });
   fixWork(w);
   if (opts.loadMedia !== false) await loadMediaFor(w);
   const rd = await dbGet('saves', w.id + ':read'); P.read = new Set(rd || []);
@@ -66,9 +66,9 @@ function buildPlayer() {
       h('div', { class: 'pwin', id: 'pwin', style: `left:${m.x}px;width:${m.w}px;height:${m.h}px;top:${m.y}px;padding:${WIN_PAD_Y}px ${WIN_PAD_X}px;font-size:${m.fs}px;line-height:${LH}` }, h('div', { class: 'ptext', id: 'ptext' })),
       h('div', { class: 'pmark', id: 'pmark', style: `left:${m.x}px;width:${m.w}px;top:${m.y + m.h + 6}px` }, h('span', { id: 'pnum' }), h('span', { class: 'tri', id: 'ptri' }, '▼')));
   }
-  const bw = W === 960 ? 106 : 132, gap = W === 960 ? 6 : 12;
+  const bw = W === 960 ? 96 : 128, gap = W === 960 ? 7 : 11;
   const bar = h('div', { class: 'pbar', id: 'pbar' });
-  const defs = [['back', 'もどる', () => playerBack()], ['prev', 'まえ', () => prevPage()], ['skip', 'スキップ', () => toggleSkip()], ['auto', 'オート', () => toggleAuto()],
+  const defs = [['back', 'もどる', () => playerBack()], ['prev', 'まえ', () => prevPage()], ['log', 'ログ', () => openLog()], ['skip', 'スキップ', () => toggleSkip()], ['auto', 'オート', () => toggleAuto()],
     ['save', 'セーブ', () => saveLoadPanel('save')], ['load', 'ロード', () => saveLoadPanel('load')], ['eyeoff', 'かくす', () => setHidden(true)], ['gear', '設定', () => openSettings()]];
   defs.forEach(([icn, lb, fn], i) => {
     const x = i === defs.length - 1 ? W - 20 - bw : 20 + i * (bw + gap);
@@ -79,6 +79,7 @@ function buildPlayer() {
   const wm = winMetrics(W);
   scr.append(bar, h('div', { class: 'pchoices', id: 'pchoices', style: `top:84px;height:${wm.y - 100}px` }));
   scr.onpointerdown = e => { if (e.button === 2) return; if (e.target.closest('button,.modal,.ppanel,.nchoice')) return; auInit(); clickAdvance(); };
+  scr.onwheel = e => { if (e.deltaY < 0 && !P.panel && !P.hidden && !$('.modal')) openLog(); };
   scr.oncontextmenu = e => { e.preventDefault(); if (!P.panel) setHidden(!P.hidden); };
 }
 function playerKey(e) {
@@ -95,6 +96,7 @@ function playerKey(e) {
   const chs = $$('#pchoices button');
   if (chs.length && /^[1-3]$/.test(k)) { const b = chs[+k - 1]; if (b) b.click(); return; }
   if (k === 'Enter' || k === ' ' || k === 'ArrowRight') { e.preventDefault(); clickAdvance(); }
+  else if (k === 'ArrowUp' && !P.panel) openLog();
   else if (k === 'ArrowLeft') prevPage();
   else if (k === 'h' || k === 'H') setHidden(true);
 }
@@ -122,19 +124,20 @@ async function showWorkTitle() {
       h('div', { class: 'ptitle-btns' },
         btn('play', 'はじめから', () => { clearPanel(); restart(); }),
         okBm ? btn('book', 'つづきから', () => { clearPanel(); loadState(bm); }) : btnOff('book', 'つづきから', 'まだ、しおりがありません'),
-        btn('load', 'ロード', () => saveLoadPanel('load')))),
+        btn('load', 'ロード', () => saveLoadPanel('load')),
+        endListOn(w) ? btn('flag', 'エンディング', () => openEndList()) : null)),
     btn('back', 'もどる', () => playerBack(), 'tl pb'), btn('gear', '設定', () => openSettings(), 'tr pb'));
   showPanel(p);
 }
 function showPanel(p) { clearPanel(); P.panel = p; $('#scr-play').appendChild(p); }
 function clearPanel() { if (P.panel) P.panel.remove(); P.panel = null; }
 function restart() {
-  P.hist = []; stopBGM(); clearPanel();
+  P.hist = []; P.log = []; stopBGM(); clearPanel();
   enterBlock(startBlock(P.w).id, emptyVis(), 0);
 }
 /* ---- ブロック・ページ・ステップ ---- */
 function enterBlock(bid, entry, li = 0, pushHist = true) {
-  P.b = bid; P.entry = clone(entry);
+  P.b = bid; P.entry = clone(entry); P.logRows = new Set(); P.logLi = {};
   if (pushHist) P.hist.push({ b: bid });
   P.pages = paginateW(P.w, P.w.blocks[bid]);
   if (!li) { showPage(0); return; }
@@ -158,7 +161,7 @@ function showPage(pi, instant, upto = 0) {
   P.si = upto;
   typeStep(page.steps[upto], instant || P.skip || sv('speed') === 0);
 }
-function saveBookmark() { if (!P.test && P.b) dbPut('saves', { b: P.b, li: curStepLi(), entry: P.entry, hist: P.hist, date: Date.now() }, P.w.id + ':bm'); }
+function saveBookmark() { if (!P.test && P.b) dbPut('saves', { b: P.b, li: curStepLi(), entry: P.entry, hist: P.hist, log: P.log, date: Date.now() }, P.w.id + ':bm'); }
 function renderVis(vis) {
   const fade = P.skip ? 80 : 420;
   setLayer($('#lay-bg'), vis.bg, mediaSrc(vis.bg), null, fade);
@@ -222,6 +225,7 @@ function typeStep(step, instant, quiet) {
     let ch = false; for (const r of step.rows) { const k = P.b + ':' + r.li; if (!P.read.has(k)) { P.read.add(k); ch = true; } }
     if (ch) saveRead();
     if (quiet) return;
+    logStep(step);
     $('#ptri').style.visibility = 'visible';
     saveBookmark();
     afterStep();
@@ -317,19 +321,88 @@ function chooseNovel(i) {
 function clearChoices() { const b = $('#pchoices'); if (b) b.innerHTML = ''; }
 function choose(i) {
   const last = P.hist[P.hist.length - 1]; if (last) last.c = i;
+  const c = curBlock().end.choices[i]; pushLog({ c: c.label || ('選択肢' + CHOICE_ABC[i]) });
   clearChoices();
   goTo(curBlock().end.choices[i].to);
 }
-function endPanel(name, stuck) {
+async function endPanel(name, stuck) {
   toggleAuto(false); toggleSkip(false);
   if (!P.test) dbDel('saves', P.w.id + ':bm');
+  const list = endsOf(P.w), useList = endListOn(P.w);
+  let isNew = false, got = [];
+  if (!stuck) {
+    got = await gotEnds(P.w);
+    if (!got.includes(P.b) && !P.test) { got.push(P.b); isNew = true; await dbPut('saves', got, P.w.id + ':ends'); }
+  }
+  const n = list.filter(b => got.includes(b.id)).length;
   const p = h('div', { class: 'ppanel pend' }, h('div', { class: 'dlg' },
     h('div', { class: 'pend-t' }, stuck ? 'ここで止まりました' : 'おしまい'),
     h('div', { class: 'pend-s' }, stuck ? '行き先が決まっていません（作る画面でつなげてください）' : (name ? 'エンディング：' + name : '　')),
+    useList && isNew ? h('div', { class: 'pend-new' }, ic('star'), `新しいエンディング！（${n} / ${list.length}）`) : null,
     h('div', { class: 'dlg-btns' },
       btn('refresh', 'はじめから', () => { clearPanel(); P.w.opts.title ? showWorkTitle() : restart(); }),
+      useList ? btn('flag', 'エンディング', () => openEndList()) : null,
       btn('back', P.test ? '作る画面へ' : '作品えらびへ', () => playerBack()))));
   showPanel(p);
+}
+/* ---- エンディングリスト ---- */
+function endsOf(w) { return Object.values(w.blocks).filter(b => b.end.type === 'end').sort((a, b) => a.ep - b.ep || a.slot - b.slot); }
+function endListOn(w) { return w.opts.endList !== false && endsOf(w).length >= 2; }
+async function gotEnds(w) { return (await dbGet('saves', w.id + ':ends')) || []; }
+async function openEndList() {
+  const list = endsOf(P.w), got = await gotEnds(P.w), per = 6, pages = Math.ceil(list.length / per);
+  let page = 0, m;
+  const body = h('div', { class: 'endlist' }), head = h('div', { class: 'dlg-title' }), nav = h('div', { class: 'log-nav' });
+  const draw = () => {
+    const n = list.filter(b => got.includes(b.id)).length;
+    head.textContent = `エンディング　${n} / ${list.length}`;
+    body.innerHTML = '';
+    list.slice(page * per, page * per + per).forEach((b, k) => {
+      const i = page * per + k, ok = got.includes(b.id);
+      body.appendChild(h('div', { class: 'end-row' + (ok ? '' : ' no') }, h('div', { class: 'end-n' }, String(i + 1)), h('div', { class: 'end-t' }, ok ? (b.end.name || 'エンディング' + (i + 1)) : '？？？')));
+    });
+    drawNav(nav, page, pages, p => { page = p; draw(); });
+  };
+  draw();
+  m = openModal(h('div', { class: 'dlg dlg-log' }, head, body, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
+}
+function drawNav(nav, page, pages, go) {
+  nav.innerHTML = '';
+  nav.append(page > 0 ? btn('prev', '前へ', () => go(page - 1), 'sm') : btnOff('prev', '前へ', '最初のページです', 'sm'),
+    h('div', { class: 'log-pg' }, `${page + 1} / ${pages}`),
+    page < pages - 1 ? btn('next', '次へ', () => go(page + 1), 'sm') : btnOff('next', '次へ', '最後のページです', 'sm'));
+}
+/* ---- バックログ ---- */
+const LOG_MAX = 200;
+function pushLog(x) { P.log.push(x); if (P.log.length > LOG_MAX) P.log.splice(0, P.log.length - LOG_MAX); }
+function logStep(step) {
+  if (P.logMute) { P.logMute = false; step.rows.forEach(r => P.logRows.add(r)); return; }
+  const page = P.pages[P.pi], nm = !isNovel() && P.w.opts.name ? page.name : '';
+  for (const r of step.rows) {
+    if (P.logRows.has(r)) continue; P.logRows.add(r);
+    const e = P.logLi[r.li];
+    if (e && !r.first && P.log.includes(e)) e.t += r.t;
+    else { const x = { n: nm, t: r.t }; P.logLi[r.li] = x; if (r.t.trim() || r.first) pushLog(x); }
+  }
+}
+function openLog() {
+  if (P.panel || $('.modal')) return;
+  toggleAuto(false); toggleSkip(false);
+  const items = P.log.filter(x => x.c || x.t.trim());
+  if (!items.length) { toast('まだログがありません'); return; }
+  const per = 8, pages = Math.ceil(items.length / per);
+  let page = pages - 1, m;
+  const useName = !isNovel() && P.w.opts.name;
+  const body = h('div', { class: 'loglist' + (useName ? '' : ' noname') }), nav = h('div', { class: 'log-nav' });
+  const draw = () => {
+    body.innerHTML = '';
+    items.slice(page * per, page * per + per).forEach(x => body.appendChild(x.c
+      ? h('div', { class: 'log-row ch' }, h('div', { class: 'log-n' }, ic('check', 18), 'えらんだ'), h('div', { class: 'log-t' }, x.c))
+      : h('div', { class: 'log-row' }, useName ? h('div', { class: 'log-n' }, x.n || '') : null, h('div', { class: 'log-t' }, x.t))));
+    drawNav(nav, page, pages, p => { page = p; draw(); });
+  };
+  draw();
+  m = openModal(h('div', { class: 'dlg dlg-log' }, h('div', { class: 'dlg-title' }, 'ログ（これまでのお話）'), body, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
 }
 function toggleAuto(v) { P.auto = v ?? !P.auto; if (P.auto) P.skip = false; updBar(); if (P.auto && !P.typing && !P.panel && !choicesShown()) afterStep(); }
 function toggleSkip(v) {
@@ -345,11 +418,11 @@ function playerBack() {
 }
 function curState() {
   const page = P.pages[P.pi];
-  return { b: P.b, li: curStepLi(), entry: clone(P.entry), hist: clone(P.hist), date: Date.now(), snip: page.steps[P.si].rows.map(r => r.t).join('').slice(0, 30), label: blockLabel(P.w, curBlock()) };
+  return { b: P.b, li: curStepLi(), entry: clone(P.entry), hist: clone(P.hist), log: clone(P.log), date: Date.now(), snip: page.steps[P.si].rows.map(r => r.t).join('').slice(0, 30), label: blockLabel(P.w, curBlock()) };
 }
 function loadState(s) {
   clearPanel(); stopBGM(); toggleAuto(false); toggleSkip(false);
-  P.hist = clone(s.hist);
+  P.hist = clone(s.hist); P.log = clone(s.log || []); P.logMute = true;
   enterBlock(s.b, s.entry, s.li, false);
 }
 /* セーブ・ロード（6つ） */

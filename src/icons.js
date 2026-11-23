@@ -40,6 +40,7 @@ const ICONS = {
   end: '<path d="M5 21V4h12l-2 4 2 4H5"/>',
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M19 6a8 8 0 010 12"/>',
   zap: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  log: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
   arrowup: '<path d="M12 19V5M6 11l6-6 6 6"/>',
   arrowdown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V4H3v13h5"/>',
