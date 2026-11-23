@@ -1589,6 +1589,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .iss-ic .ic{width:28px;height:28px}
 .iss-name{font-size:calc(16px*var(--uis,1));font-weight:bold;color:var(--sub)}
 .iss-msg{font-size:calc(18px*var(--uis,1));line-height:1.5;color:var(--tx)}
+.btn.tgt.okbtn{border:2px solid var(--ok)!important;color:var(--ok);background:#ebfbee}
+.btn.tgt.okbtn .ic{display:none}
 
 </style>
 </head>
@@ -3222,7 +3224,9 @@ function blockPanel() {
     pin(p, e.rules.length < 3 ? btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'sm')
       : btnOff('plus', '条件をふやす', '条件は3つまでです', 'sm'), 14, ay, 360, 40);
     const need = !E.chk || E.chk.elseUsed[b.id] !== false;
-    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), targetBtn(e.else, id => { e.else = id; }, 146)), 14, ay + 48, 360, 44);
+    const eb = targetBtn(e.else, id => { e.else = id; }, 146);
+    if (!need && !e.else) { eb.querySelector('.tg-l').textContent = 'なくてOK'; eb.classList.add('okbtn'); eb.title = 'どのルートも条件のどれかに当てはまるので、行き先はなくても大丈夫です'; }
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb), 14, ay + 48, 360, 44);
     if (!need && !e.else && e.rules.length < 3) pin(p, h('div', { class: 'hint', style: 'font-size:14px;color:var(--ok);font-weight:bold' }, 'どのルートも条件のどれかに当てはまるので、なくてもOK'), 14, ay + 94, 360, 22);
   }
   if (e.type === 'end') {
