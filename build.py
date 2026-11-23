@@ -29,7 +29,10 @@ def scale(m):
     if any(k in sel for k in KEEP): return m.group(0)
     return sel + '{' + re.sub(r'font-size:(\d+)px', r'font-size:calc(\1px*var(--uis,1))', body) + '}'
 css = re.sub(r'([^{}]+)\{([^{}]*)\}', scale, css)
-css = (root / 'vendor/sakura.min.css').read_text(encoding='utf-8') + '\n' + css
+yc = (root / 'vendor/yomogi/400.css').read_text(encoding='utf-8')
+yc = re.sub(r"src: url\(\./files/([^)]+\.woff2)\) format\('woff2'\), url\([^)]+\) format\('woff'\);",
+            lambda m: "src: url(" + b64(root / 'vendor/yomogi' / m.group(1), 'font/woff2') + ") format('woff2');", yc)
+css = yc + '\n' + (root / 'vendor/sakura.min.css').read_text(encoding='utf-8') + '\n' + css
 vendor = '\n'.join((root / 'vendor' / f).read_text(encoding='utf-8') for f in ['tsparticles.bundle.min.js', 'sakura.min.js'])
 js = '\n'.join((src / f).read_text(encoding='utf-8') for f in order)
 out = html.replace('/*CSS*/', css).replace('/*VENDOR*/', vendor).replace('/*SAMPLES*/', samples).replace('/*JS*/', js)

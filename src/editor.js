@@ -10,7 +10,7 @@ function pin(parent, el, x, y, w, hh) {
 }
 async function openEditor(w) {
   fixWork(w);
-  Object.assign(E, { w, pick: null, li: null, linePage: 0, libSel: null, libPath: [], libPage: 0, mapPage: 0, chk: null, entryCache: {}, guideMsg: null });
+  Object.assign(E, { w, pick: null, li: null, linePage: 0, libSel: null, libPath: [], libPage: 0, mapPage: 0, mapScroll: 0, chk: null, entryCache: {}, guideMsg: null });
   await loadMediaFor(w);
   E.bid = startBlock(w).id;
   E.tab = w.opts.long ? 'map' : 'text';
@@ -87,63 +87,56 @@ function editorRefresh() {
   s.appendChild(g);
 }
 /* ---------- 1 お話をつなぐ（マップ） ---------- */
-const MAP = { colW: 165, gap: 60, cardH: 150, rowGap: 12, x0: 16, y0: 8, per: 4 };
+const MAP = { colW: 165, gap: 60, cardH: 150, rowGap: 12, x0: 12, y0: 4 };
 function slotsOf(ep) { return ep === 1 ? 1 : (E.w.opts.branch ? 3 : 1); }
-function cardXY(ep, slot) {
-  const col = (ep - 1) % MAP.per;
-  return [MAP.x0 + col * (MAP.colW + MAP.gap), MAP.y0 + 40 + slot * (MAP.cardH + MAP.rowGap)];
-}
+function cardXY(ep, slot) { return [MAP.x0 + (ep - 1) * (MAP.colW + MAP.gap), MAP.y0 + 40 + slot * (MAP.cardH + MAP.rowGap)]; }
 const LINE_COLS = ['#e0a800', '#1c7ed6', '#2f9e44', '#1e3a7b', '#e8590c', '#868e96'];
 function renderMap(body) {
   const w = E.w;
   if (!E.chk) E.chk = analyze(w);
-  const chk = E.chk, totalEp = maxEp(w) + 1, pages = Math.ceil(totalEp / MAP.per);
-  E.mapPage = clamp(E.mapPage, 0, pages - 1);
-  const ep0 = E.mapPage * MAP.per + 1;
-  const onPage = b => b.ep >= ep0 && b.ep < ep0 + MAP.per;
+  const chk = E.chk, totalEp = maxEp(w) + 1;
+  const innerW = Math.max(840, MAP.x0 * 2 + totalEp * (MAP.colW + MAP.gap) - MAP.gap + 24);
+  const sc = pin(body, h('div', { class: 'map-scroll' }), 16, 8, 840, 540);
+  const inner = h('div', { class: 'map-inner', style: `width:${innerW}px;height:522px` });
+  sc.appendChild(inner);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'map-svg'); svg.setAttribute('width', 880); svg.setAttribute('height', 600);
+  svg.setAttribute('class', 'map-svg'); svg.setAttribute('width', innerW); svg.setAttribute('height', 522);
   let html = '<defs>' + LINE_COLS.map((c, i) => `<marker id="ar${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`).join('') + '</defs>';
   for (const b of Object.values(w.blocks)) {
-    if (!onPage(b)) continue;
     const [x, y] = cardXY(b.ep, b.slot), ex = exitsOf(b).filter(e => e.to && w.blocks[e.to]);
     ex.forEach((e, i) => {
       const ci = e.kind === 'choice' ? e.choice : e.kind === 'next' ? 3 : e.kind === 'rule' ? 4 : 5;
       const sx = x + MAP.colW, sy = y + MAP.cardH / 2 + (i - (ex.length - 1) / 2) * 22;
       const t = w.blocks[e.to], dash = (e.kind === 'rule' || e.kind === 'else') ? 'stroke-dasharray="7 5"' : '';
       const label = e.kind === 'choice' ? CHOICE_ABC[e.choice] : e.kind === 'rule' ? String(e.rule + 1) : e.kind === 'else' ? '他' : '';
-      if (onPage(t)) {
-        const [tx, ty] = cardXY(t.ep, t.slot);
-        let d;
-        if (t.ep > b.ep) { const ey = ty + MAP.cardH / 2; d = `M${sx} ${sy} C${sx + 40} ${sy},${tx - 40} ${ey},${tx} ${ey}`; }
-        else { const cx = tx + MAP.colW / 2, top = Math.max(4, Math.min(sy, ty) - 30); d = `M${sx} ${sy} C${sx + 50} ${sy},${sx + 50} ${top},${(sx + cx) / 2} ${top} S${cx} ${ty - 30},${cx} ${ty}`; }
-        html += `<path d="${d}" fill="none" stroke="${LINE_COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
-      } else {
-        html += `<path d="M${sx} ${sy} L${sx + 24} ${sy}" stroke="${LINE_COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
-        html += `<text x="${sx + 28}" y="${sy + 5}" fill="${LINE_COLS[ci]}" font-size="14" font-weight="bold" class="svgt">${blockLabel(w, t)}</text>`;
-      }
+      const [tx, ty] = cardXY(t.ep, t.slot);
+      let d;
+      if (t.ep > b.ep) { const ey = ty + MAP.cardH / 2; d = `M${sx} ${sy} C${sx + 40} ${sy},${tx - 40} ${ey},${tx} ${ey}`; }
+      else { const cx = tx + MAP.colW / 2, top = Math.max(4, Math.min(sy, ty) - 30); d = `M${sx} ${sy} C${sx + 50} ${sy},${sx + 50} ${top},${(sx + cx) / 2} ${top} S${cx} ${ty - 30},${cx} ${ty}`; }
+      html += `<path d="${d}" fill="none" stroke="${LINE_COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
       if (label) html += `<text x="${sx + 4}" y="${sy - 5}" fill="${LINE_COLS[ci]}" font-size="14" font-weight="bold" class="svgt">${label}</text>`;
     });
   }
   svg.innerHTML = html;
-  body.appendChild(svg);
-  for (let ep = ep0; ep < ep0 + MAP.per; ep++) {
+  inner.appendChild(svg);
+  for (let ep = 1; ep <= totalEp; ep++) {
     const [cx] = cardXY(ep, 0);
-    pin(body, h('div', { class: 'ep-head' + (ep > totalEp ? ' dim' : '') }, 'エピソード ' + ep), cx, MAP.y0, MAP.colW, 32);
-    if (ep > totalEp) continue;
+    pin(inner, h('div', { class: 'ep-head' }, 'エピソード ' + ep), cx, MAP.y0, MAP.colW, 32);
     for (let sl = 0; sl < slotsOf(ep); sl++) {
       const b = blockAt(w, ep, sl), [x, y] = cardXY(ep, sl);
-      if (b) pin(body, blockCard(b, chk), x, y, MAP.colW, MAP.cardH);
-      else pin(body, h('button', { class: 'card-empty' + (E.pick ? ' pickable' : ''), onclick: () => addBlock(ep, sl) }, ic('plus', 28), h('div', null, E.pick ? 'ここに作ってつなぐ' : 'ここに作る')), x, y, MAP.colW, MAP.cardH);
+      if (b) pin(inner, blockCard(b, chk), x, y, MAP.colW, MAP.cardH);
+      else pin(inner, h('button', { class: 'card-empty' + (E.pick ? ' pickable' : ''), onclick: () => addBlock(ep, sl) }, ic('plus', 28), h('div', null, E.pick ? 'ここに作ってつなぐ' : 'ここに作る')), x, y, MAP.colW, MAP.cardH);
     }
   }
+  // スクロール：位置を覚える。たてのホイールでも横に動く
+  sc.scrollLeft = E.mapScroll || 0;
+  sc.onscroll = () => { E.mapScroll = sc.scrollLeft; };
+  sc.onwheel = e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { sc.scrollLeft += e.deltaY; e.preventDefault(); } };
   const bar = h('div', { class: 'map-bar' },
-    E.mapPage > 0 ? btn('prev', '前のエピソード', () => { E.mapPage--; editorRefresh(); }, 'sm') : btnOff('prev', '前のエピソード', 'これより前のエピソードはありません', 'sm'),
-    h('div', { class: 'pg-n' }, `${E.mapPage + 1} / ${pages}`),
-    E.mapPage < pages - 1 ? btn('next', '次のエピソード', () => { E.mapPage++; editorRefresh(); }, 'sm') : btnOff('next', '次のエピソード', '右はしのエピソードにブロックを作ると、次のページがふえます', 'sm'),
+    h('div', { class: 'hint', style: 'display:flex;align-items:center;gap:6px;font-weight:bold' }, ic('arrow'), `エピソード ${totalEp}まで（横にスクロールできます）`),
     h('div', { class: 'chk-sum' + (chk.count ? ' bad' : '') }, ic(chk.count ? 'warn' : 'check'),
       chk.limited ? 'ルートが多すぎて全部はチェックできません' : chk.count ? `問題が ${chk.count} こ（カードのアイコンをクリック）` : '問題はありません'));
-  pin(body, bar, 16, 542, 840, 44);
+  pin(body, bar, 16, 554, 840, 40);
   body.appendChild(blockPanel());
 }
 function endSummary(b) {
@@ -736,7 +729,7 @@ function renderWorkTab(body) {
   pin(L, col, 14, 8, 590, 570);
   body.appendChild(L);
   // 右上：見た目
-  const R1 = h('div', { class: 'panel' }); R1.style.cssText = 'left:648px;top:8px;width:616px;height:428px';
+  const R1 = h('div', { class: 'panel' }); R1.style.cssText = 'left:648px;top:8px;width:616px;height:474px';
   const setT = (k, v) => { th[k] = v; markDirty(true); };
   const sw = (cur, list, on) => h('div', { class: 'sw-row' }, list.map(c => h('button', { class: 'sw' + (cur === c ? ' on' : ''), style: `background:${c}`, onclick: () => on(c) })), colorInp(cur, on));
   pin(R1, h('div', { class: 'p-h' }, '見た目（読む画面の色）'), 14, 8, 580, 32);
@@ -749,23 +742,26 @@ function renderWorkTab(body) {
   const al = row('透明度', ...ALPHA_NAMES.map((n, i) => btn(th.alpha === i ? 'check' : null, n, () => setT('alpha', i), 'sm' + (th.alpha === i ? ' on' : ''))));
   $$('.btn', al).forEach(b => b.style.width = '104px');
   pin(R1, al, 14, 272, 580, 46);
+  const fr = row('文字の形', ...Object.entries(FONTS).map(([k, [n, fam]]) => { const b = btn((th.font || 'kyokasho') === k ? 'check' : null, n, () => setT('font', k), 'sm' + ((th.font || 'kyokasho') === k ? ' on' : '')); b.style.fontFamily = fam; return b; }));
+  $$('.btn', fr).forEach(b => b.style.width = '104px');
+  pin(R1, fr, 14, 318, 580, 46);
   const pv = h('div', { class: 'wk-prev', style: 'width:580px;height:96px;padding:10px;display:flex;gap:10px;align-items:center' },
-    h('div', { class: 'wk-pw', style: 'flex:1;height:74px' }, 'これは見本の文章です。', h('br'), '色や透明度が反映されます。'),
+    h('div', { class: 'wk-pw', style: 'flex:1;height:74px' }, 'これは見本の文章です。', h('br'), '色や文字の形が反映されます。'),
     h('div', { style: 'display:flex;flex-direction:column;gap:6px;width:150px' },
-      h('div', { style: 'height:34px;border-radius:8px;background:var(--wch);border:2px solid var(--wch-l);color:var(--wtx);display:flex;align-items:center;justify-content:center;font-family:var(--ftx);font-size:16px' }, '選択肢'),
+      h('div', { style: 'height:34px;border-radius:8px;background:var(--wch);border:2px solid var(--wch-l);color:var(--wtx);display:flex;align-items:center;justify-content:center;font-family:var(--pfont);font-size:16px' }, '選択肢'),
       h('div', { style: 'height:34px;border-radius:8px;background:var(--wui);border:2px solid var(--wui-l);color:var(--wtx);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:bold' }, 'ボタン')));
   pv.style.backgroundImage = `url(${SAMPLE_BG[6].data})`; pv.style.backgroundSize = 'cover'; pv.style.backgroundPosition = 'center';
   themeVars(pv, th);
-  pin(R1, pv, 14, 320, 580, 96);
+  pin(R1, pv, 14, 366, 580, 96);
   body.appendChild(R1);
   // 右下：送る
-  const R2 = h('div', { class: 'panel focus' }); R2.style.cssText = 'left:648px;top:446px;width:616px;height:146px';
+  const R2 = h('div', { class: 'panel focus' }); R2.style.cssText = 'left:648px;top:492px;width:616px;height:100px';
   if (!E.chk) E.chk = analyze(w);
-  pin(R2, h('div', { class: 'p-h' }, h('span', { class: 'n' }, ic('down', 18)), '友だちに送る'), 14, 8, 300, 32);
+  pin(R2, h('div', { class: 'p-h' }, h('span', { class: 'n' }, ic('down', 18)), '友だちに送る'), 14, 6, 300, 32);
   pin(R2, h('div', { class: 'bp-iss' + (E.chk.count ? ' bad' : '') }, ic(E.chk.count ? 'warn' : 'check'),
-    E.chk.count ? `問題が ${E.chk.count} こ（送ることはできます）` : 'お話のつながりは大丈夫です'), 14, 46, 330, 24);
-  if (E.chk.count && w.opts.long) pin(R2, btn('map', 'マップで見る', () => goStep('map'), 'xs'), 14, 80, 150, 34);
-  pin(R2, btn('down', '作品ファイルを書き出す', async () => { await flushSave(); exportWork(w); }, 'pri'), 354, 20, 244, 104);
+    E.chk.count ? `問題が ${E.chk.count} こ（送ることはできます）` : 'お話のつながりは大丈夫です'), 14, 44, 330, 24);
+  if (E.chk.count && w.opts.long) pin(R2, btn('map', 'マップ', () => goStep('map'), 'xs'), 14, 68, 100, 26);
+  pin(R2, btn('down', '作品ファイルを書き出す', async () => { await flushSave(); exportWork(w); }, 'pri'), 354, 14, 244, 68);
   body.appendChild(R2);
 }
 function colorInp(val, on) {

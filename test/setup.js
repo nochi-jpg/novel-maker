@@ -3,7 +3,7 @@
     const out = [], st = document.getElementById('stage');
     const W = st.offsetWidth;
     for (const el of st.querySelectorAll('button,.btn,.card,.bcard,.ln,.lcard,.mcard,.dlg,.tag,.bp-k,.wz-l,.set-l,.wk-l,.hint,.fx-lab,.pg-n,.bnav-l,.dlg-title,.sc-title,.slot')) {
-      if (!el.offsetParent) continue;
+      if (!el.offsetParent || el.closest('.map-scroll')) continue;
       const r = el.getBoundingClientRect(), s = st.getBoundingClientRect(), sc = s.width / W;
       if (r.left < s.left - 1 || r.right > s.right + 1 || r.top < s.top - 1 || r.bottom > s.bottom + 1) out.push('OUT:' + (el.className + ' ' + el.textContent).slice(0, 40));
       if (el.scrollWidth > el.clientWidth + 2 && !el.matches('.card,.bcard,.ln,.lcard,.mcard,.slot,.dlg')) out.push('CLIP-W:' + (el.className + ' ' + el.textContent).slice(0, 40) + ` ${el.scrollWidth}>${el.clientWidth}`);

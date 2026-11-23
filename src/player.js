@@ -13,6 +13,7 @@ function themeVars(el, th0) {
   el.style.setProperty('--wui-l', mix(th.ui, '#ffffff', 0.45));
   el.style.setProperty('--wui-p', mix(th.win, '#ffffff', 0.85));
   el.style.setProperty('--wtx', th.tx);
+  el.style.setProperty('--pfont', (FONTS[(th0 && th0.font) || 'kyokasho'] || FONTS.kyokasho)[1]);
   el.style.setProperty('--wwinc', th.win);
   el.style.setProperty('--wwin-l', mix(th.win, '#ffffff', 0.45));
   el.style.setProperty('--wwin', rgba(th.win, a));
@@ -27,6 +28,7 @@ async function playWork(w, opts = {}) {
   fixWork(w);
   if (opts.loadMedia !== false) await loadMediaFor(w);
   const rd = await dbGet('saves', w.id + ':read'); P.read = new Set(rd || []);
+  try { await document.fonts.load(`34px ${fontOf(w)}`, 'あア漢'); } catch (e) {}
   setStageW(stageWOf(w));
   showScreen('play');
   buildPlayer();

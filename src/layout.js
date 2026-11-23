@@ -1,6 +1,13 @@
 /* ===== ページ分け ===== */
 const F_UI = '"BIZ UDPGothic","BIZ UDPゴシック","Noto Sans CJK JP","Noto Sans JP",sans-serif';
 const F_TX = '"UD デジタル 教科書体 NK-R","UD Digi Kyokasho NK-R","UD デジタル 教科書体 N-R","BIZ UDPGothic","BIZ UDPゴシック","Noto Sans CJK JP",sans-serif';
+const FONTS = {
+  gothic: ['ゴシック', '"BIZ UDPGothic","BIZ UDPゴシック","Noto Sans CJK JP",sans-serif'],
+  mincho: ['明朝', '"BIZ UDPMincho","BIZ UDP明朝","Yu Mincho","Noto Serif CJK JP",serif'],
+  kyokasho: ['教科書体', F_TX],
+  tegaki: ['手書き風', '"Yomogi","BIZ UDPGothic","Noto Sans CJK JP",sans-serif']
+};
+const fontOf = w => (FONTS[(w && w.theme && w.theme.font) || 'kyokasho'] || FONTS.kyokasho)[1];
 const NG_HEAD = '、。，．・：；？！」』）】〕〉》ーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ…‥ヽヾゝゞ々';
 const LINES_PER_PAGE = 4, LH = 1.5, WIN_PAD_X = 34, WIN_PAD_Y = 22;
 let _mctx = null;
@@ -14,9 +21,9 @@ function parseName(line, useName) {
   const m = /^【([^】]{1,12})】(.*)$/.exec(line);
   return m ? { name: m[1], t: m[2] } : { name: '', t: line };
 }
-function wrapLine(text, maxW, fs) {
+function wrapLine(text, maxW, fs, fam) {
   if (!_mctx) _mctx = document.createElement('canvas').getContext('2d');
-  _mctx.font = `${fs}px ${F_TX}`;
+  _mctx.font = `${fs}px ${fam || F_TX}`;
   const rows = []; let cur = '', cw = 0;
   const chars = [...text];
   for (let i = 0; i < chars.length; i++) {
@@ -38,8 +45,8 @@ function novelMetrics(stageW) {
   const fs = sv('size'), w = stageW - NOVEL.x * 2;
   return { fs, x: NOVEL.x, y: NOVEL.y, w, h: NOVEL.h, inner: w - NOVEL.pad * 2, rows: Math.floor((NOVEL.h - NOVEL.pad * 2 - 40) / (fs * NOVEL.lh)) };
 }
-function paginateW(w, block) { return paginate(block, stageWOf(w), w.opts.name, w.opts.mode); }
-function paginate(block, stageW, useName, mode) {
+function paginateW(w, block) { return paginate(block, stageWOf(w), w.opts.name, w.opts.mode, fontOf(w)); }
+function paginate(block, stageW, useName, mode, fam) {
   const novel = mode === 'novel';
   const m = novel ? novelMetrics(stageW) : winMetrics(stageW), lines = (block.text || '').split('\n'), pages = [];
   const maxRows = novel ? m.rows : LINES_PER_PAGE;
@@ -51,7 +58,7 @@ function paginate(block, stageW, useName, mode) {
     const c = block.cues[li], { name, t } = parseName(raw, useName && !novel);
     if (c && (c.bg || c.ch)) flush();
     if (cur && !novel && useName && cur.name !== name) flush();
-    const rows = wrapLine(t, m.inner, m.fs).map((rt, k) => ({ li, t: rt, first: k === 0 }));
+    const rows = wrapLine(t, m.inner, m.fs, fam).map((rt, k) => ({ li, t: rt, first: k === 0 }));
     if (novel) {
       if (cur && cur.rows.length + rows.length > maxRows) flush();
       let rest = rows;

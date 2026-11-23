@@ -60,6 +60,7 @@ async def main():
         await click('新しいフォルダ'); await pg.locator('.dlg-ask input').fill('森の絵'); await pg.locator('.dlg-ask').get_by_role('button', name='OK').click(); await shot('manager_folder')
         await pg.locator('.dlg-mg').get_by_role('button', name='とじる').click()
         await pg.locator('.step', has_text='しあげ・送る').click(); await shot('work')
+        await click('手書き風'); await shot('work_tegaki')
         await pg.locator('.step', has_text='お話をつなぐ').click(); print('tab:', await pg.evaluate('E.tab'))
         await click('ためす'); print('after ためす:', await scr()); await pg.wait_for_timeout(600); await shot('play_title')
         await click('はじめから'); await pg.wait_for_timeout(1500); await shot('play')
@@ -81,6 +82,12 @@ async def main():
         await shot('novel_choice')
         await pg.locator('.nchoice').nth(1).click(); await pg.wait_for_timeout(900); await shot('novel_after')
         await pg.evaluate("gotoTitle()")
+        # マップのスクロール（エピソード9まで）
+        await pg.evaluate('''(async()=>{ const w=newWork({title:'長いお話', long:true, branch:true}); let prev=startBlock(w);
+          for(let e=2;e<=9;e++){ const b=newBlock(e,0); b.text='エピソード'+e; w.blocks[b.id]=b; prev.end.type='next'; prev.end.to=b.id; prev=b; }
+          await saveWork(w); APP.mode='make'; openEditor(w); })()''')
+        await pg.wait_for_timeout(800); await shot('map_scroll0')
+        await pg.mouse.move(400, 300); await pg.mouse.wheel(0, 900); await pg.wait_for_timeout(400); await shot('map_scroll1')
         print('errors:', errs[:8])
         await b.close()
 asyncio.run(main())
