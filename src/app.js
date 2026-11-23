@@ -167,7 +167,11 @@ function openSettings() {
       if (!IS_VIEW) body.appendChild(h('div', { class: 'set-row set-data' },
         btn('home', 'タイトルへ', async () => { closeModal(m); if (P.typing) stopTyping(); gotoTitle(); }),
         cur ? btn('down', '作品を書き出す', () => exportDialog(cur)) : btnOff('down', '作品を書き出す', '作品を開いているときに使えます'),
-        btn('load', '作品を読みこむ', async () => { closeModal(m); await importDialog(); })));
+        btn('load', '作品を読みこむ', async () => { closeModal(m); await importDialog(); }),
+        btn('refresh', 'サンプルを入れなおす', async () => {
+          if (!(await okAsk('サンプル作品を、さいしょの形に入れなおしますか？', 'サンプル作品を改造していた場合、その内容は消えます'))) return;
+          const n = await installSamples(true); toast(`サンプル作品を${n}つ入れなおしました`); if ($('#scr-select').classList.contains('show')) gotoSelect(APP.mode || 'view', 0);
+        })));
       body.appendChild(h('div', { class: 'set-note' }, '内蔵のBGM・効果音は、このアプリが自分で作っている音です（素材ファイルは使っていません）。'));
     }
   }
@@ -206,4 +210,4 @@ window.addEventListener('drop', async e => {
   if (js.length && $('#scr-select').classList.contains('show')) gotoSelect(APP.mode, APP.page);
 });
 function applyUis() { $('#stage').style.setProperty('--uis', sv('uifs')); }
-window.addEventListener('DOMContentLoaded', () => { applyUis(); fitStage(); if (IS_VIEW) bootView(); else gotoTitle(); });
+window.addEventListener('DOMContentLoaded', () => { applyUis(); fitStage(); if (IS_VIEW) bootView(); else installSamples().catch(() => 0).finally(gotoTitle); });

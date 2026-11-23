@@ -122,13 +122,30 @@ async function exportViewer(w) {
   if (a < 0 || z < 0) { toast('書き出しに失敗しました'); return; }
   const js = v => JSON.stringify(v).replace(/<\//g, '<\\/').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const mid = B + '\nwindow.VIEW_WORK=' + js({ work: out, media }) + ';\nconst SAMPLE_BG=' + js(SAMPLE_BG.filter(x => used.has(x.id))) +
-    ';\nconst SAMPLE_CH=' + js(SAMPLE_CH.filter(x => used.has(x.id))) + ';\nconst SAMPLE_CHARS=' + js(SAMPLE_CHARS) + ';\nconst LOGO_SRC="";\n';
+    ';\nconst SAMPLE_CH=' + js(SAMPLE_CH.filter(x => used.has(x.id))) + ';\nconst SAMPLE_CHARS=' + js(SAMPLE_CHARS) + ';\nconst LOGO_SRC="";\nconst SAMPLE_WORKS=[];\n';
   let html = PAGE_SRC.slice(0, a) + mid + PAGE_SRC.slice(z);
   const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   html = html.replace(/<title>[^<]*<\/title>/, '<title>' + esc(w.title || 'むだい') + '</title>');
   const name = (w.title || 'sakuhin').replace(/[\\/:*?"<>|]/g, '_') + '.html';
   download(name, html, 'text/html');
   toast('「' + name + '」を書き出しました（' + (html.length / 1048576).toFixed(1) + 'MB）');
+}
+/* アプリに入っているサンプル作品：はじめて起動したときに入れる（設定から入れなおせる） */
+const SAMPLE_VER = 1;
+async function installSamples(force) {
+  if (!force && (await dbGet('saves', 'app:samples')) >= SAMPLE_VER) return 0;
+  let n = 0;
+  for (const o of SAMPLE_WORKS) {
+    const w = clone(o.work);
+    const old = await dbGet('works', w.id);
+    if (old && !force) continue;
+    if (old) await deleteWork(old);
+    fixWork(w); w.editable = true; w.updated = Date.now();
+    for (const id in o.media) await dbPut('media', { id, wid: w.id, data: o.media[id] });
+    await dbPut('works', w); n++;
+  }
+  await dbPut('saves', SAMPLE_VER, 'app:samples');
+  return n;
 }
 /* 見るだけのHTMLをひらいたとき */
 async function bootView() {

@@ -97,8 +97,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .set-row{display:flex;align-items:center;gap:10px;height:54px;margin-bottom:8px}
 .set-l{width:240px;font-size:20px;flex:none;font-weight:bold}
 .set-row .btn{width:160px}
-.set-data{margin-top:26px}
-.set-data .btn{width:290px}
+.set-data{margin-top:26px;flex-wrap:wrap;height:auto}
+.set-data .btn{width:calc(50% - 5px)}
 .set-note{font-size:16px;color:var(--sub);margin-top:12px}
 /* ===== 再生（作品の色） ===== */
 #scr-play{background:#000;cursor:pointer}
