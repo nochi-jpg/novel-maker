@@ -283,7 +283,7 @@ function blockPanel() {
     pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb, clr), X, y + 42, W, 42);
   }
   if (e.type === 'end') {
-    const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
+    const inp = h('input', { class: 'inp sm', maxlength: 32, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
     inp.oninput = () => { e.name = inp.value; markDirty(); };
     pin(p, h('div', { class: 'p-cap' }, 'エンディングの名前'), X, Y, W, 24);
     pin(p, inp, X, Y + 28, W, 42);

@@ -448,32 +448,64 @@ function loadState(s) {
   P.hist = clone(s.hist); P.log = clone(s.log || []); P.logMute = true;
   enterBlock(s.b, s.entry, s.li, false);
 }
-/* セーブ・ロード（6つ） */
+/* セーブ・ロード（6こ×3ページ、サムネイルつき） */
+const SL_PER = 6, SL_PAGES = 3;
+let slPage = 0;
+function loadImg(src) { return new Promise(r => { if (!src) return r(null); const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+async function makeThumb() {
+  try {
+    const W = stageWOf(P.w), th = 108, tw = Math.round(W * th / 720), k = th / 720;
+    const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#1a1f2e'; x.fillRect(0, 0, tw, th);
+    const vis = visUntil(curBlock(), P.entry, curStepLi(), true);
+    if (vis.tone) x.filter = toneCss(vis.tone);
+    const bg = await loadImg(mediaSrc(vis.bg));
+    if (bg) { const s = Math.max(tw / bg.width, th / bg.height); x.drawImage(bg, (tw - bg.width * s) / 2, (th - bg.height * s) / 2, bg.width * s, bg.height * s); }
+    for (let i = 0; i < 3; i++) {
+      const c = vis.ch[i]; if (!c) continue;
+      const im = await loadImg(mediaSrc(c.m)); if (!im) continue;
+      const hh = th * 0.86 * (c.s || 1), ww = im.width * hh / im.height;
+      x.drawImage(im, tw * CH_X[i] / 100 - ww / 2, th - hh - (c.y || 0) * 30 * k, ww, hh);
+    }
+    return cv.toDataURL('image/jpeg', 0.8);
+  } catch (e) { return null; }
+}
 async function saveLoadPanel(mode) {
   toggleAuto(false); toggleSkip(false);
-  const slots = [];
-  for (let i = 1; i <= 6; i++) slots.push(await dbGet('saves', P.w.id + ':s' + i));
   let m;
-  const grid = h('div', { class: 'slgrid' }, slots.map((s, i) => {
-    const valid = s && P.w.blocks[s.b];
-    const card = h('button', { class: 'slot' + (valid ? '' : ' emp'), onclick: async () => {
-      if (mode === 'save') {
-        if (!P.b) { toast('まだ読み始めていません'); return; }
-        if (valid && !(await okAsk(`セーブ${i + 1}にうわがきしますか？`))) return;
-        await dbPut('saves', curState(), P.w.id + ':s' + (i + 1)); closeModal(m); toast(`セーブ${i + 1}にセーブしました`);
-      } else {
-        if (!valid) return;
-        closeModal(m); loadState(s);
-      }
-    } },
-      h('div', { class: 'slot-n' }, 'セーブ ' + (i + 1)),
-      valid ? [h('div', { class: 'slot-b' }, 'ブロック ' + s.label + '　' + fmtDate(s.date)), h('div', { class: 'slot-s' }, s.snip || '')] : h('div', { class: 'slot-b' }, 'あき'));
-    if (mode === 'load' && !valid) card.disabled = true;
-    return card;
-  }));
+  const grid = h('div', { class: 'slgrid' }), nav = h('div', { class: 'log-nav' });
+  const ratio = P.w.ratio === '4:3' ? ' r43' : '';
+  const draw = async () => {
+    const slots = [];
+    for (let i = 0; i < SL_PER; i++) slots.push(await dbGet('saves', P.w.id + ':s' + (slPage * SL_PER + i + 1)));
+    grid.innerHTML = '';
+    slots.forEach((s, k) => {
+      const n = slPage * SL_PER + k + 1, valid = s && P.w.blocks[s.b];
+      const card = h('button', { class: 'slot' + (valid ? '' : ' emp') + ratio, onclick: async () => {
+        if (mode === 'save') {
+          if (!P.b) { toast('まだ読み始めていません'); return; }
+          if (valid && !(await okAsk(`セーブ${n}にうわがきしますか？`))) return;
+          const st = curState(); st.thumb = await makeThumb();
+          await dbPut('saves', st, P.w.id + ':s' + n); closeModal(m); toast(`セーブ${n}にセーブしました`);
+        } else {
+          if (!valid) return;
+          closeModal(m); loadState(s);
+        }
+      } },
+        h('div', { class: 'slot-th' }, valid && s.thumb ? h('img', { src: s.thumb, draggable: 'false' }) : h('span', null, valid ? '画像なし' : '')),
+        h('div', { class: 'slot-info' },
+          h('div', { class: 'slot-n' }, 'セーブ ' + n),
+          valid ? [h('div', { class: 'slot-b' }, 'ブロック ' + s.label), h('div', { class: 'slot-b' }, fmtDate(s.date)), h('div', { class: 'slot-s' }, s.snip || '')] : h('div', { class: 'slot-b' }, 'あき')));
+      if (mode === 'load' && !valid) card.disabled = true;
+      grid.appendChild(card);
+    });
+    drawNav(nav, slPage, SL_PAGES, p => { slPage = p; draw(); });
+  };
+  await draw();
   m = openModal(h('div', { class: 'dlg dlg-sl' },
     h('div', { class: 'dlg-title' }, mode === 'save' ? 'セーブする場所をえらんでください' : 'ロードするデータをえらんでください'),
-    grid, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
+    grid, nav, h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
 }
 function playerRelayout() {
   if (!P.w || !$('#scr-play').classList.contains('show')) return;
