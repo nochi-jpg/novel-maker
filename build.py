@@ -2,7 +2,7 @@
 import pathlib, base64, json
 root = pathlib.Path(__file__).parent
 src = root / 'src'
-order = ['util.js', 'icons.js', 'db.js', 'audio.js', 'layout.js', 'check.js', 'player.js', 'editor.js', 'app.js']
+order = ['util.js', 'icons.js', 'db.js', 'audio.js', 'fx.js', 'layout.js', 'check.js', 'player.js', 'editor.js', 'app.js']
 b64 = lambda p, mime: f'data:{mime};base64,' + base64.b64encode(p.read_bytes()).decode()
 BG = [('bg01', '夜の森'), ('bg02', '学校（夕方）'), ('bg03', '学校（昼）'), ('bg04', '子ども部屋'), ('bg05', '夜の住宅街'), ('bg06', '住宅街（昼）'),
       ('bg07', '教室'), ('bg08', '教室（朝）'), ('bg09', '黒板'), ('bg10', 'ろうか（ドア）'), ('bg11', '教室のかべ')]
@@ -20,8 +20,18 @@ for c, n in CH:
 samples = ('const SAMPLE_BG=' + json.dumps(bg, ensure_ascii=False) + ';\nconst SAMPLE_CH=' + json.dumps(ch, ensure_ascii=False) +
            ';\nconst SAMPLE_CHARS=' + json.dumps(chars, ensure_ascii=False) + ';\nconst LOGO_SRC=' + json.dumps(b64(root / 'assets/logo.png', 'image/png')) + ';\n')
 html = (src / 'index.html').read_text(encoding='utf-8')
+import re
 css = (src / 'style.css').read_text(encoding='utf-8')
+# 画面の文字の大きさ：物語の文字（再生画面の本文など）以外の font-size を --uis でかける
+KEEP = ('pwin', 'pname', 'pch', 'pend-t', 'pend-s', 'ptitle-t', 'ptitle-a', 'wk-pn', 'wk-pw', 'nchoice', 'prow', 'pmark', 'pbar')
+def scale(m):
+    sel, body = m.group(1), m.group(2)
+    if any(k in sel for k in KEEP): return m.group(0)
+    return sel + '{' + re.sub(r'font-size:(\d+)px', r'font-size:calc(\1px*var(--uis,1))', body) + '}'
+css = re.sub(r'([^{}]+)\{([^{}]*)\}', scale, css)
+css = (root / 'vendor/sakura.min.css').read_text(encoding='utf-8') + '\n' + css
+vendor = '\n'.join((root / 'vendor' / f).read_text(encoding='utf-8') for f in ['tsparticles.bundle.min.js', 'sakura.min.js'])
 js = '\n'.join((src / f).read_text(encoding='utf-8') for f in order)
-out = html.replace('/*CSS*/', css).replace('/*SAMPLES*/', samples).replace('/*JS*/', js)
+out = html.replace('/*CSS*/', css).replace('/*VENDOR*/', vendor).replace('/*SAMPLES*/', samples).replace('/*JS*/', js)
 (root / 'novel-maker-edu.html').write_text(out, encoding='utf-8')
 print('built', len(out.encode('utf-8')), 'bytes')

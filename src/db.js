@@ -31,14 +31,14 @@ const dbAll = s => dbReq(s, 'readonly', st => st.getAll());
 const dbKeys = s => dbReq(s, 'readonly', st => st.getAllKeys());
 
 /* ---- 作品データ ---- */
-const DEF_THEME = { ui: '#1e3a7b', tx: '#ffffff' };
+const DEF_THEME = { ui: '#1e3a7b', win: '#1e3a7b', tx: '#ffffff', ch: '#1e3a7b', alpha: 1 };
 function newBlock(ep, slot) {
   return { id: uid(), ep, slot, text: '', cues: {}, end: { type: 'end', to: null, choices: [{ label: '', to: null }, { label: '', to: null }], rules: [], else: null, name: '' } };
 }
 function newWork(o) {
   const w = {
     app: APP_ID, ver: FILE_VER, id: uid(), title: o.title || 'むだい', author: o.author || '', editable: true,
-    ratio: o.ratio || '16:9', opts: { title: !!o.title_, long: !!o.long, branch: !!o.branch, flag: !!o.flag, name: false },
+    ratio: o.ratio || '16:9', opts: { title: !!o.title_, long: !!o.long, branch: !!o.branch, flag: !!o.flag, name: false, mode: o.mode || 'window' },
     theme: clone(DEF_THEME), titleImg: null, blocks: {}, media: [], folders: { bg: [], ch: [], se: [], bgm: [] }, created: Date.now(), updated: Date.now()
   };
   const b = newBlock(1, 0); w.blocks[b.id] = b;
@@ -70,6 +70,8 @@ function mediaName(w, id) {
 function fixWork(w) {
   w.folders = w.folders || {}; for (const k of ['bg', 'ch', 'se', 'bgm']) w.folders[k] = w.folders[k] || [];
   for (const m of w.media) if (m.folder == null) m.folder = '';
+  w.opts.mode = w.opts.mode || 'window';
+  w.theme = Object.assign({}, DEF_THEME, { win: w.theme.ui, ch: w.theme.ui }, w.theme);
   return w;
 }
 const MEDIA = {}; // id -> dataURL（いま開いている作品の分）
@@ -129,13 +131,14 @@ async function importFile(file) {
   return w;
 }
 /* 設定（端末ごと） */
-const SET_DEF = { speed: 1, size: 1, width: 1, alpha: 1, wait: 1, bgm: 1, se: 1 };
+const SET_DEF = { speed: 1, size: 1, width: 1, alpha: 1, wait: 1, bgm: 1, se: 1, uifs: 1 };
 const SET_OPT = {
   speed: { label: '文字送りの速さ', names: ['おそい', 'ふつう', 'はやい', 'いっき'], vals: [60, 30, 12, 0] },
   size: { label: '文字の大きさ', names: ['小', '中', '大'], vals: [28, 34, 40] },
   width: { label: 'ウインドウの横はば', names: ['せまい', 'ふつう', 'ひろい'], vals: [0.12, 0.03125, 0.01] },
   alpha: { label: 'ウインドウのこさ', names: ['こい', 'ふつう', 'うすい', 'とてもうすい'], vals: [0.92, 0.78, 0.6, 0.4] },
   wait: { label: 'オートの待ち時間', names: ['みじかい', 'ふつう', 'ながい'], vals: [800, 1600, 2800] },
+  uifs: { label: '画面の文字の大きさ', names: ['小', '中', '大'], vals: [0.8, 0.9, 1] },
   bgm: { label: 'BGMの音量', names: ['大', '中', '小', 'なし'], vals: [1, 0.6, 0.3, 0] },
   se: { label: '効果音の音量', names: ['大', '中', '小', 'なし'], vals: [1, 0.6, 0.3, 0] }
 };

@@ -30,26 +30,48 @@ function wrapLine(text, maxW, fs) {
   if (cur || !rows.length) rows.push(cur);
   return rows;
 }
-/* pages: [{name, rows:[{li, t, first}]}] */
-function paginate(block, stageW, useName) {
-  const m = winMetrics(stageW), lines = (block.text || '').split('\n'), pages = [];
+/* pages: [{name, rows:[{li,t,first}], steps:[{rows}]}]
+   ウインドウ型：1ページ＝1ステップ（4行まで）
+   サウンドノベル型：1行（段落）＝1ステップ。ページに重ねていく */
+const NOVEL = { x: 64, y: 80, h: 604, pad: 30, lh: 1.55 };
+function novelMetrics(stageW) {
+  const fs = sv('size'), w = stageW - NOVEL.x * 2;
+  return { fs, x: NOVEL.x, y: NOVEL.y, w, h: NOVEL.h, inner: w - NOVEL.pad * 2, rows: Math.floor((NOVEL.h - NOVEL.pad * 2 - 40) / (fs * NOVEL.lh)) };
+}
+function paginateW(w, block) { return paginate(block, stageWOf(w), w.opts.name, w.opts.mode); }
+function paginate(block, stageW, useName, mode) {
+  const novel = mode === 'novel';
+  const m = novel ? novelMetrics(stageW) : winMetrics(stageW), lines = (block.text || '').split('\n'), pages = [];
+  const maxRows = novel ? m.rows : LINES_PER_PAGE;
   let cur = null;
   const flush = () => { if (cur && cur.rows.length) pages.push(cur); cur = null; };
   for (let li = 0; li < lines.length; li++) {
     const raw = lines[li];
     if (!raw.trim()) { flush(); continue; }
-    const c = block.cues[li], { name, t } = parseName(raw, useName);
+    const c = block.cues[li], { name, t } = parseName(raw, useName && !novel);
     if (c && (c.bg || c.ch)) flush();
-    if (cur && useName && cur.name !== name) flush();
-    const rows = wrapLine(t, m.inner, m.fs);
-    rows.forEach((rt, k) => {
-      if (!cur) cur = { name, rows: [] };
-      cur.rows.push({ li, t: rt, first: k === 0 });
-      if (cur.rows.length >= LINES_PER_PAGE) flush();
-    });
+    if (cur && !novel && useName && cur.name !== name) flush();
+    const rows = wrapLine(t, m.inner, m.fs).map((rt, k) => ({ li, t: rt, first: k === 0 }));
+    if (novel) {
+      if (cur && cur.rows.length + rows.length > maxRows) flush();
+      let rest = rows;
+      while (rest.length) {
+        if (!cur) cur = { name: '', rows: [], steps: [] };
+        const room = maxRows - cur.rows.length, part = rest.slice(0, room);
+        cur.rows.push(...part); cur.steps.push({ rows: part }); rest = rest.slice(room);
+        if (rest.length) flush();
+      }
+    } else {
+      rows.forEach(r => {
+        if (!cur) cur = { name, rows: [], steps: null };
+        cur.rows.push(r);
+        if (cur.rows.length >= maxRows) flush();
+      });
+    }
   }
   flush();
   if (!pages.length) pages.push({ name: '', rows: [{ li: 0, t: '', first: true }] });
+  for (const p of pages) if (!p.steps) p.steps = [{ rows: p.rows }];
   return pages;
 }
 function pageOfLine(pages, li) {
@@ -58,12 +80,14 @@ function pageOfLine(pages, li) {
   return pages.length - 1;
 }
 /* 見た目の状態：bg, ch[3], bgm */
-const emptyVis = () => ({ bg: null, ch: [null, null, null], bgm: null });
+const emptyVis = () => ({ bg: null, ch: [null, null, null], bgm: null, tone: null, weather: null });
 function applyCue(vis, c, withSound = true) {
   if (!c) return;
   if (c.bg) vis.bg = c.bg === 'none' ? null : c.bg;
   if (c.ch) for (const s in c.ch) { const x = c.ch[s]; vis.ch[s] = (!x.m || x.m === 'none') ? null : { m: x.m, s: x.s ?? 1, y: x.y ?? 0 }; }
   if (withSound && c.bgm) vis.bgm = c.bgm === 'stop' ? null : c.bgm;
+  if (c.tone) vis.tone = c.tone === 'none' ? null : c.tone;
+  if (c.weather) vis.weather = c.weather === 'none' ? null : c.weather;
 }
 function visUntil(block, entry, li, inclusive = true) {
   const v = clone(entry);
