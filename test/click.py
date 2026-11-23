@@ -68,6 +68,10 @@ async def main():
         await click('設定'); await shot('settings')
         await click('小'); await click('とじる'); await shot('uifs_small')
         await click('設定'); await click('中'); await click('とじる')
+        await pg.locator('.step', has_text='しあげ・送る').click()
+        await click('もどる'); print('もどる from 4 ->', await pg.evaluate('E.tab'))
+        await click('もどる'); print('もどる from 3 ->', await pg.evaluate('E.tab'))
+        await pg.locator('.ed-head .btn[title]').click(); print('home ->', await pg.evaluate('E.tab')); await shot('home')
         await click('もどる'); print('after editor もどる:', await scr()); await shot('select')
         await click('もどる'); print('after select もどる:', await scr())
         # サウンドノベル型

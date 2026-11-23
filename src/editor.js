@@ -64,7 +64,15 @@ function editorRefresh() {
   if (E.tab === 'map' && !w.opts.long) E.tab = 'text';
   // 上のバー
   const head = h('div', { class: 'ed-head' });
-  head.appendChild(btn('back', 'もどる', async () => { stopBGM(); await flushSave(); gotoSelect('make', APP.page); }, 'tl'));
+  // もどる：1つ前のステップへ（最初のステップなら作品えらびへ）。家：最初のステップ（お話をつなぐ）へ
+  const steps0 = stepsOf(w), si = steps0.findIndex(x => x[0] === E.tab);
+  head.appendChild(btn('back', 'もどる', async () => {
+    if (si > 0) { goStep(steps0[si - 1][0]); return; }
+    stopBGM(); await flushSave(); gotoSelect('make', APP.page);
+  }, 'tl'));
+  const home = si > 0 ? btn('home', null, () => goStep(steps0[0][0])) : btnOff('home', null, w.opts.long ? 'いま「お話をつなぐ」の画面です' : 'いま最初の画面です');
+  home.title = w.opts.long ? 'お話をつなぐ画面へ' : '最初の画面へ';
+  pin(head, home, 144, 12, 48, 48);
   const steps = h('div', { class: 'steps' });
   stepsOf(w).forEach(([k, lb], i) => {
     if (i) steps.appendChild(h('span', { class: 'step-ar' }, ic('next')));

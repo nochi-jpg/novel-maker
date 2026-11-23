@@ -147,7 +147,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .slot-s{font-size:17px;font-family:var(--pfont,var(--ftx));line-height:1.35;height:46px;overflow:hidden}
 /* ===== 作る ===== */
 .ed-head{position:absolute;left:0;top:0;width:1280px;height:72px;background:#fff;border-bottom:2px solid var(--line);z-index:5}
-.steps{position:absolute;left:150px;width:840px;top:0;height:72px;display:flex;align-items:center;justify-content:center;gap:6px}
+.steps{position:absolute;left:200px;width:796px;top:0;height:72px;display:flex;align-items:center;justify-content:center;gap:6px}
 .step{height:40px;padding:0 14px;border-radius:20px;border:2px solid var(--line2);background:#fff;color:var(--sub);font-family:var(--fui);font-size:17px;font-weight:bold;display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
 .step:hover{border-color:var(--brand);color:var(--brand)}
 .step .no{width:24px;height:24px;border-radius:12px;background:var(--brand-l);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:15px}
