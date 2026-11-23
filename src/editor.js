@@ -1,10 +1,16 @@
 /* ===== 作る（エディタ） ===== */
-const E = { w: null, tab: 'map', bid: null, mapPage: 0, pick: null, li: null, linePage: 0, libKind: 'bg', libPage: 0, libSel: null, chSlot: 1, medKind: 'bg', medPage: 0, medSel: null, chk: null, entryCache: {} };
+const E = { w: null, tab: 'map', bid: null, mapPage: 0, pick: null, li: null, linePage: 0, libKind: 'bg', libPath: [], libPage: 0, libSel: null, chSlot: 1, chk: null, entryCache: {}, guideMsg: null };
 const KIND_NAME = { bg: '背景', ch: '人物', se: '効果音', bgm: 'BGM' };
 const KIND_ICON = { bg: 'image', ch: 'user', se: 'bell', bgm: 'music' };
-function pos(el, x, y, w, hh) { el.style.left = x + 'px'; el.style.top = y + 'px'; if (w != null) el.style.width = w + 'px'; if (hh != null) el.style.height = hh + 'px'; el.classList.add('abs'); return el; }
+const SLOT_NAME = ['左', '中央', '右'];
+function pin(parent, el, x, y, w, hh) {
+  el.style.position = 'absolute'; el.style.left = x + 'px'; el.style.top = y + 'px';
+  if (w != null) el.style.width = w + 'px'; if (hh != null) el.style.height = hh + 'px';
+  parent.appendChild(el); return el;
+}
 async function openEditor(w) {
-  E.w = w; E.pick = null; E.li = null; E.linePage = 0; E.libSel = null; E.medSel = null; E.mapPage = 0;
+  fixWork(w);
+  Object.assign(E, { w, pick: null, li: null, linePage: 0, libSel: null, libPath: [], libPage: 0, mapPage: 0, chk: null, entryCache: {}, guideMsg: null });
   await loadMediaFor(w);
   E.bid = startBlock(w).id;
   E.tab = w.opts.long ? 'map' : 'text';
@@ -13,9 +19,10 @@ async function openEditor(w) {
   APP.key = editorKey;
   editorRefresh();
 }
+function backToEditor() { setStageW(1280); showScreen('edit'); APP.key = editorKey; editorRefresh(); }
 function editorKey(e) {
   if ($('.modal')) return;
-  if (e.key === 'Escape' && E.pick) { E.pick = null; editorRefresh(); }
+  if (e.key === 'Escape' && E.pick) { E.pick = null; E.guideMsg = null; editorRefresh(); }
 }
 let _dirtyT = 0;
 function markDirty(redraw) {
@@ -25,45 +32,83 @@ function markDirty(redraw) {
 }
 async function flushSave() { clearTimeout(_dirtyT); await saveWork(E.w); }
 const curB = () => E.w.blocks[E.bid] || startBlock(E.w);
+function stepsOf(w) {
+  const s = [['text', '文章を書く'], ['fx', '絵と音'], ['work', 'しあげ・送る']];
+  return w.opts.long ? [['map', 'お話をつなぐ'], ...s] : s;
+}
+function goStep(k) { stopBGM(); E.pick = null; E.guideMsg = null; E.tab = k; editorRefresh(); }
+/* 案内バー */
+function guide(msg, warn) {
+  const g = $('#guide'); if (!g) { toast(msg); return; }
+  E.guideMsg = { msg, warn };
+  g.classList.toggle('warn', !!warn);
+  $('.g-msg', g).textContent = msg;
+  clearTimeout(guide._t);
+  if (warn) guide._t = setTimeout(() => { E.guideMsg = null; const gg = $('#guide'); if (gg) { gg.classList.remove('warn'); $('.g-msg', gg).textContent = defaultGuide(); } }, 4000);
+}
+function defaultGuide() {
+  if (E.pick) return '行き先にしたいブロックをクリックしてください（空いたマスなら、新しく作ってつなぎます）';
+  if (E.tab === 'map') return 'ブロックをえらんで、右で「読みおわったら どうする？」を決めよう';
+  if (E.tab === 'text') return 'お話を書いたり、はりつけたりしよう。空いた行でページが変わります';
+  if (E.tab === 'fx') {
+    if (E.li == null) return '① 左の「行」をえらぼう';
+    if (!E.libSel) return '② まん中で、入れたい背景・人物・音をえらぼう';
+    return '「この行に入れる」をおそう（③で、たしかめられます）';
+  }
+  return '作品の名前や色を決めて、できたら「作品ファイルを書き出す」で友だちに送ろう';
+}
 function editorRefresh() {
   const s = $('#scr-edit'); s.innerHTML = '';
-  if (!E.w.blocks[E.bid]) E.bid = startBlock(E.w).id;
+  const w = E.w;
+  if (!w.blocks[E.bid]) E.bid = startBlock(w).id;
+  if (E.tab === 'map' && !w.opts.long) E.tab = 'text';
   // 上のバー
-  s.appendChild(btn('back', 'もどる', async () => { stopBGM(); await flushSave(); gotoSelect('make', APP.page); }, 'tl'));
-  const tabs = [['map', 'マップ', 'map'], ['text', '本文', 'text'], ['fx', '演出', 'wand'], ['media', '素材', 'box'], ['work', '作品', 'sliders']].filter(t => t[0] !== 'map' || E.w.opts.long);
-  const tw = 140, x0 = 160;
-  tabs.forEach(([k, lb, icn], i) => s.appendChild(pos(btn(icn, lb, () => { stopBGM(); E.pick = null; E.tab = k; editorRefresh(); }, 'tab' + (E.tab === k ? ' on' : '')), x0 + i * (tw + 8), 14, tw, 52)));
-  s.appendChild(pos(btn('play', 'ためす', async () => { await flushSave(); playWork(E.w, { test: true, loadMedia: false, onBack: () => { showScreen('edit'); APP.key = editorKey; editorRefresh(); } }); }), 1000, 14, 120, 52));
-  s.appendChild(btn('gear', '設定', () => openSettings(), 'tr'));
-  const body = h('div', { class: 'ed-body' }); s.appendChild(body);
-  ({ map: renderMap, text: renderText, fx: renderFx, media: renderMedia, work: renderWorkTab })[E.tab](body);
+  const head = h('div', { class: 'ed-head' });
+  head.appendChild(btn('back', 'もどる', async () => { stopBGM(); await flushSave(); gotoSelect('make', APP.page); }, 'tl'));
+  const steps = h('div', { class: 'steps' });
+  stepsOf(w).forEach(([k, lb], i) => {
+    if (i) steps.appendChild(h('span', { class: 'step-ar' }, ic('next')));
+    steps.appendChild(h('button', { class: 'step' + (E.tab === k ? ' now' : ''), onclick: () => { if (E.tab !== k) goStep(k); } },
+      h('span', { class: 'no' }, String(i + 1)), lb));
+  });
+  head.appendChild(steps);
+  const tr = btn('play', 'ためす', async () => { stopBGM(); await flushSave(); playWork(w, { test: true, loadMedia: false, onBack: backToEditor }); }, 'pri');
+  pin(head, tr, 1004, 12, 128, 48);
+  head.appendChild(btn('gear', '設定', () => openSettings(), 'tr'));
+  s.appendChild(head);
+  const body = h('div', { class: 'ed-body' });
+  s.appendChild(body);
+  ({ map: renderMap, text: renderText, fx: renderFx, work: renderWorkTab })[E.tab](body);
+  // 案内バー
+  const gm = E.guideMsg;
+  const g = h('div', { class: 'guide' + (gm && gm.warn ? ' warn' : ''), id: 'guide' }, ic('info'), h('div', { class: 'g-msg' }, gm ? gm.msg : defaultGuide()),
+    E.pick ? btn('x', 'やめる', () => { E.pick = null; E.guideMsg = null; editorRefresh(); }, 'xs') : null,
+    h('div', { class: 'g-work' }, '作品：' + (w.title || 'むだい')));
+  s.appendChild(g);
 }
-/* ---------- マップ ---------- */
-const MAP = { colW: 170, gap: 60, cardH: 150, rowGap: 18, x0: 20, y0: 96, per: 4 };
+/* ---------- 1 お話をつなぐ（マップ） ---------- */
+const MAP = { colW: 165, gap: 60, cardH: 150, rowGap: 12, x0: 16, y0: 8, per: 4 };
 function slotsOf(ep) { return ep === 1 ? 1 : (E.w.opts.branch ? 3 : 1); }
 function cardXY(ep, slot) {
   const col = (ep - 1) % MAP.per;
-  return [MAP.x0 + col * (MAP.colW + MAP.gap), MAP.y0 + 44 + slot * (MAP.cardH + MAP.rowGap)];
+  return [MAP.x0 + col * (MAP.colW + MAP.gap), MAP.y0 + 40 + slot * (MAP.cardH + MAP.rowGap)];
 }
+const LINE_COLS = ['#e0a800', '#1c7ed6', '#2f9e44', '#1e3a7b', '#e8590c', '#868e96'];
 function renderMap(body) {
   const w = E.w;
   if (!E.chk) E.chk = analyze(w);
   const chk = E.chk, totalEp = maxEp(w) + 1, pages = Math.ceil(totalEp / MAP.per);
   E.mapPage = clamp(E.mapPage, 0, pages - 1);
-  const ep0 = E.mapPage * MAP.per + 1, eps = [];
-  for (let e = ep0; e < ep0 + MAP.per; e++) eps.push(e);
+  const ep0 = E.mapPage * MAP.per + 1;
   const onPage = b => b.ep >= ep0 && b.ep < ep0 + MAP.per;
-  // 線
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'map-svg'); svg.setAttribute('width', 1280); svg.setAttribute('height', 720);
-  svg.innerHTML = '<defs>' + ['#ffd257', '#74c0fc', '#8ce99a', '#ffffff', '#ffa94d', '#adb5bd'].map((c, i) => `<marker id="ar${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`).join('') + '</defs>';
-  const COL = { A: 0, B: 1, C: 2, next: 3, rule: 4, else: 5 }, COLS = ['#ffd257', '#74c0fc', '#8ce99a', '#ffffff', '#ffa94d', '#adb5bd'];
-  let paths = '';
+  svg.setAttribute('class', 'map-svg'); svg.setAttribute('width', 880); svg.setAttribute('height', 600);
+  let html = '<defs>' + LINE_COLS.map((c, i) => `<marker id="ar${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`).join('') + '</defs>';
   for (const b of Object.values(w.blocks)) {
     if (!onPage(b)) continue;
     const [x, y] = cardXY(b.ep, b.slot), ex = exitsOf(b).filter(e => e.to && w.blocks[e.to]);
     ex.forEach((e, i) => {
-      const ci = e.kind === 'choice' ? COL[CHOICE_ABC[e.choice]] : COL[e.kind];
+      const ci = e.kind === 'choice' ? e.choice : e.kind === 'next' ? 3 : e.kind === 'rule' ? 4 : 5;
       const sx = x + MAP.colW, sy = y + MAP.cardH / 2 + (i - (ex.length - 1) / 2) * 22;
       const t = w.blocks[e.to], dash = (e.kind === 'rule' || e.kind === 'else') ? 'stroke-dasharray="7 5"' : '';
       const label = e.kind === 'choice' ? CHOICE_ABC[e.choice] : e.kind === 'rule' ? String(e.rule + 1) : e.kind === 'else' ? '他' : '';
@@ -71,74 +116,63 @@ function renderMap(body) {
         const [tx, ty] = cardXY(t.ep, t.slot);
         let d;
         if (t.ep > b.ep) { const ey = ty + MAP.cardH / 2; d = `M${sx} ${sy} C${sx + 40} ${sy},${tx - 40} ${ey},${tx} ${ey}`; }
-        else { const cx = tx + MAP.colW / 2; d = `M${sx} ${sy} C${sx + 50} ${sy},${sx + 50} ${Math.min(sy, ty) - 70},${(sx + cx) / 2} ${Math.min(sy, ty) - 70} S${cx} ${ty - 40},${cx} ${ty}`; }
-        paths += `<path d="${d}" fill="none" stroke="${COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
+        else { const cx = tx + MAP.colW / 2, top = Math.max(4, Math.min(sy, ty) - 30); d = `M${sx} ${sy} C${sx + 50} ${sy},${sx + 50} ${top},${(sx + cx) / 2} ${top} S${cx} ${ty - 30},${cx} ${ty}`; }
+        html += `<path d="${d}" fill="none" stroke="${LINE_COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
       } else {
-        paths += `<path d="M${sx} ${sy} L${sx + 26} ${sy}" stroke="${COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
-        paths += `<text x="${sx + 30}" y="${sy + 5}" fill="${COLS[ci]}" font-size="14" class="svgt">${blockLabel(w, t)}</text>`;
+        html += `<path d="M${sx} ${sy} L${sx + 24} ${sy}" stroke="${LINE_COLS[ci]}" stroke-width="3" ${dash} marker-end="url(#ar${ci})"/>`;
+        html += `<text x="${sx + 28}" y="${sy + 5}" fill="${LINE_COLS[ci]}" font-size="14" font-weight="bold" class="svgt">${blockLabel(w, t)}</text>`;
       }
-      if (label) paths += `<text x="${sx + 4}" y="${sy - 5}" fill="${COLS[ci]}" font-size="13" font-weight="bold" class="svgt">${label}</text>`;
+      if (label) html += `<text x="${sx + 4}" y="${sy - 5}" fill="${LINE_COLS[ci]}" font-size="14" font-weight="bold" class="svgt">${label}</text>`;
     });
   }
-  svg.innerHTML += paths;
+  svg.innerHTML = html;
   body.appendChild(svg);
-  // 列とカード
-  for (const ep of eps) {
+  for (let ep = ep0; ep < ep0 + MAP.per; ep++) {
     const [cx] = cardXY(ep, 0);
-    body.appendChild(pos(h('div', { class: 'ep-head' + (ep > totalEp ? ' dim' : '') }, 'エピソード ' + ep), cx, MAP.y0, MAP.colW, 36));
+    pin(body, h('div', { class: 'ep-head' + (ep > totalEp ? ' dim' : '') }, 'エピソード ' + ep), cx, MAP.y0, MAP.colW, 32);
     if (ep > totalEp) continue;
     for (let sl = 0; sl < slotsOf(ep); sl++) {
       const b = blockAt(w, ep, sl), [x, y] = cardXY(ep, sl);
-      if (b) body.appendChild(pos(blockCard(b, chk), x, y, MAP.colW, MAP.cardH));
-      else {
-        const can = ep > 1 || !Object.keys(w.blocks).length;
-        const em = h('button', { class: 'card-empty' + (E.pick ? ' pickable' : ''), onclick: () => addBlock(ep, sl) }, ic('plus', 28), h('div', null, E.pick ? 'ここに作ってつなぐ' : 'ブロックを作る'));
-        if (!can) em.disabled = true;
-        body.appendChild(pos(em, x, y, MAP.colW, MAP.cardH));
-      }
+      if (b) pin(body, blockCard(b, chk), x, y, MAP.colW, MAP.cardH);
+      else pin(body, h('button', { class: 'card-empty' + (E.pick ? ' pickable' : ''), onclick: () => addBlock(ep, sl) }, ic('plus', 28), h('div', null, E.pick ? 'ここに作ってつなぐ' : 'ここに作る')), x, y, MAP.colW, MAP.cardH);
     }
   }
-  // 下の段
-  const bar = h('div', { class: 'map-bar' });
-  if (E.pick) bar.append(h('div', { class: 'pick-msg' }, ic('link'), '行き先のブロックをクリックしてください'), btn('x', 'やめる', () => { E.pick = null; editorRefresh(); }, 'sm'));
-  else {
-    bar.append(btn('prev', '前へ', () => { E.mapPage--; editorRefresh(); }, 'sm' + (E.mapPage > 0 ? '' : ' dis')),
-      h('div', { class: 'pg-n sm' }, `${E.mapPage + 1} / ${pages}`),
-      btn('next', '次へ', () => { E.mapPage++; editorRefresh(); }, 'sm' + (E.mapPage < pages - 1 ? '' : ' dis')),
-      h('div', { class: 'chk-sum' + (chk.count ? ' bad' : '') }, chk.count ? ic('warn') : ic('check'), chk.limited ? 'ルートが多すぎて全部はチェックできません' : chk.count ? `問題が ${chk.count} こあります（アイコンをクリック）` : '問題はありません'));
-  }
-  body.appendChild(pos(bar, 20, 646, 860, 52));
-  $$('.dis', bar).forEach(b => b.disabled = true);
-  body.appendChild(pos(blockPanel(), 900, 90, 360, 616));
+  const bar = h('div', { class: 'map-bar' },
+    E.mapPage > 0 ? btn('prev', '前のエピソード', () => { E.mapPage--; editorRefresh(); }, 'sm') : btnOff('prev', '前のエピソード', 'これより前のエピソードはありません', 'sm'),
+    h('div', { class: 'pg-n' }, `${E.mapPage + 1} / ${pages}`),
+    E.mapPage < pages - 1 ? btn('next', '次のエピソード', () => { E.mapPage++; editorRefresh(); }, 'sm') : btnOff('next', '次のエピソード', '右はしのエピソードにブロックを作ると、次のページがふえます', 'sm'),
+    h('div', { class: 'chk-sum' + (chk.count ? ' bad' : '') }, ic(chk.count ? 'warn' : 'check'),
+      chk.limited ? 'ルートが多すぎて全部はチェックできません' : chk.count ? `問題が ${chk.count} こ（カードのアイコンをクリック）` : '問題はありません'));
+  pin(body, bar, 16, 542, 840, 44);
+  body.appendChild(blockPanel());
 }
 function endSummary(b) {
   const e = b.end, w = E.w, lb = id => id && w.blocks[id] ? blockLabel(w, w.blocks[id]) : '？';
-  if (e.type === 'next') return ['arrow', '次へ ' + lb(e.to)];
-  if (e.type === 'choice') return ['branch', `選択肢 ${e.choices.length}つ`];
-  if (e.type === 'cond') return ['cond', `条件 ${e.rules.length}つ`];
-  return ['end', e.name || 'おわり'];
+  if (e.type === 'next') return ['next', 'arrow', '次へ ' + lb(e.to)];
+  if (e.type === 'choice') return ['choice', 'branch', `選択肢 ${e.choices.length}つ`];
+  if (e.type === 'cond') return ['cond', 'cond', `条件 ${e.rules.length}つ`];
+  return ['end', 'end', e.name || 'おわり'];
 }
 function blockCard(b, chk) {
-  const w = E.w, iss = chk.issues[b.id] || [], [ei, et] = endSummary(b);
+  const w = E.w, iss = chk.issues[b.id] || [], [ec, ei, et] = endSummary(b);
   const types = [...new Set(iss.map(x => x.type))];
-  const card = h('div', { class: 'bcard' + (b.id === E.bid ? ' sel' : '') + (E.pick ? (E.pick.from === b.id ? ' nopick' : ' pickable') : ''), onclick: () => {
-    if (E.pick) { if (E.pick.from === b.id) { toast('自分自身にはつなげません'); return; } E.pick.set(b.id); E.pick = null; markDirty(true); return; }
-    E.bid = b.id; editorRefresh();
+  return h('div', { class: 'bcard' + (b.id === E.bid && !E.pick ? ' sel' : '') + (E.pick ? (E.pick.from === b.id ? ' nopick' : ' pickable') : ''), onclick: () => {
+    if (E.pick) { if (E.pick.from === b.id) { guide('自分自身にはつなげません', true); return; } E.pick.set(b.id); E.pick = null; E.guideMsg = null; markDirty(true); return; }
+    E.bid = b.id; E.li = null; E.linePage = 0; editorRefresh();
   } },
     h('div', { class: 'bc-top' }, h('div', { class: 'bc-l' }, blockLabel(w, b)),
-      h('div', { class: 'bc-iss' }, types.slice(0, 4).map(t => h('button', { class: 'iss', style: `color:${ISSUE[t].color}`, title: ISSUE[t].name, onclick: e => {
-        e.stopPropagation(); toast(ISSUE[t].name + '：' + iss.filter(x => x.type === t).map(x => x.msg).join('／'), 4200);
+      h('div', { class: 'bc-iss' }, types.slice(0, 4).map(t => h('button', { class: 'iss', style: `color:${ISSUE[t].color === '#adb5bd' ? '#868e96' : ISSUE[t].color}`, title: ISSUE[t].name, onclick: e => {
+        e.stopPropagation(); guide(ISSUE[t].name + '：' + iss.filter(x => x.type === t).map(x => x.msg).join('／'), true);
       } }, ic(ISSUE[t].icon))))),
-    h('div', { class: 'bc-txt' }, b.text.trim() ? b.text.replace(/\n+/g, ' ').slice(0, 40) : '（本文なし）'),
-    h('div', { class: 'bc-end' }, ic(ei), h('span', null, et)));
-  return card;
+    h('div', { class: 'bc-txt' }, b.text.trim() ? b.text.replace(/\n+/g, ' ').slice(0, 40) : '（まだ文章がありません）'),
+    h('div', { class: 'bc-end ' + ec }, ic(ei), h('span', null, et)));
 }
 function addBlock(ep, slot) {
   const w = E.w;
   if (blockAt(w, ep, slot)) return;
   const b = newBlock(ep, slot); w.blocks[b.id] = b;
-  if (E.pick) { E.pick.set(b.id); E.pick = null; }
-  else if (!w.opts.branch) { // 分岐しないときは前のエピソードと自動でつなぐ
+  if (E.pick) { E.pick.set(b.id); E.pick = null; E.guideMsg = null; }
+  else if (!w.opts.branch) {
     const p = blockAt(w, ep - 1, 0);
     if (p && (p.end.type === 'end' || (p.end.type === 'next' && !p.end.to)) && !p.end.name) { p.end.type = 'next'; p.end.to = b.id; }
   }
@@ -146,8 +180,7 @@ function addBlock(ep, slot) {
 }
 async function removeBlock(b) {
   const w = E.w;
-  if (b.ep === 1) { toast('最初のブロックは消せません'); return; }
-  if (!(await okAsk(`ブロック ${blockLabel(w, b)} を消しますか？`, '本文と演出も消えます。もとにもどせません'))) return;
+  if (!(await okAsk(`ブロック ${blockLabel(w, b)} を消しますか？`, '文章と絵・音の指定も消えます。もとにもどせません'))) return;
   delete w.blocks[b.id];
   for (const x of Object.values(w.blocks)) {
     const e = x.end;
@@ -159,52 +192,62 @@ async function removeBlock(b) {
 }
 function targetBtn(cur, set, wdt) {
   const w = E.w, b = cur && w.blocks[cur];
-  const bt = btn(b ? 'arrow' : 'link', b ? blockLabel(w, b) : 'えらぶ', () => { E.pick = { from: E.bid, set }; editorRefresh(); }, 'sm tgt' + (b ? '' : ' none'));
-  bt.style.width = (wdt || 120) + 'px';
+  const bt = h('button', { class: 'btn sm tgt', style: `width:${wdt}px`, onclick: () => { E.pick = { from: E.bid, set }; E.guideMsg = null; editorRefresh(); } },
+    ic(b ? 'arrow' : 'link'), h('span', { class: 'tg-l' }, b ? blockLabel(w, b) + '　' + (b.text.trim().split('\n')[0] || '') : (wdt < 150 ? 'えらぶ' : '行き先をえらぶ')));
+  if (!b) bt.style.borderStyle = 'dashed';
   return bt;
 }
 function blockPanel() {
-  const w = E.w, b = curB(), e = b.end, p = h('div', { class: 'panel bpanel' });
-  p.append(h('div', { class: 'bp-head' }, h('div', { class: 'bp-l' }, 'ブロック ' + blockLabel(w, b)),
-    b.ep > 1 ? btn('trash', '消す', () => removeBlock(b), 'sm') : null));
-  p.append(h('div', { class: 'bp-row' }, btn('text', '本文を書く', () => { E.tab = 'text'; editorRefresh(); }, 'sm w160'), btn('wand', '演出', () => { E.tab = 'fx'; editorRefresh(); }, 'sm w160')));
-  p.append(h('div', { class: 'bp-cap' }, 'このブロックのおわり方'));
-  const types = [['next', '次へ', 'arrow', true], ['choice', '選択肢', 'branch', w.opts.branch], ['cond', '条件', 'cond', w.opts.flag], ['end', 'おわり', 'end', true]];
-  const grid = h('div', { class: 'bp-grid' });
-  types.forEach(([t, lb, icn, ok]) => {
-    const bt = btn(icn, lb, () => { if (t === 'cond' && !e.rules.length) e.rules.push({ groups: [[]], to: null }); e.type = t; markDirty(true); }, 'sm opt w160' + (e.type === t ? ' on' : ''));
-    if (!ok) bt.disabled = true; grid.appendChild(bt);
+  const w = E.w, b = curB(), e = b.end;
+  const p = h('div', { class: 'panel' }); p.style.cssText = 'left:872px;top:8px;width:392px;height:584px';
+  pin(p, h('div', { class: 'p-h' }, 'ブロック ' + blockLabel(w, b) + ' の設定'), 14, 10, 360, 32);
+  const iss = (E.chk && E.chk.issues[b.id]) || [];
+  pin(p, h('div', { class: 'bp-iss' + (iss.length ? ' bad' : '') }, ic(iss.length ? ISSUE[iss[0].type].icon : 'check'),
+    h('span', { style: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, iss.length ? iss[0].msg + (iss.length > 1 ? `（ほか${iss.length - 1}こ）` : '') : '問題はありません')), 14, 44, 360, 22);
+  pin(p, btn('text', '文章を書く', () => goStep('text'), 'sm'), 14, 74, 176, 42);
+  pin(p, btn('wand', '絵と音をつける', () => goStep('fx'), 'sm'), 198, 74, 176, 42);
+  pin(p, h('div', { class: 'p-cap' }, '読みおわったら どうする？'), 14, 128, 360, 24);
+  const grid = h('div', { class: 'opt-grid' });
+  const types = [['next', '次へ進む', 'arrow', null], ['choice', '選択肢を出す', 'branch', w.opts.branch ? null : '「しあげ・送る」で分岐を「する」にすると使えます'],
+    ['cond', '条件で分ける', 'cond', w.opts.flag ? null : '「しあげ・送る」でイベントフラグを「使う」にすると使えます'], ['end', 'おわりにする', 'end', null]];
+  types.forEach(([t, lb, icn, off]) => {
+    if (off) { grid.appendChild(btnOff(icn, lb, off)); return; }
+    grid.appendChild(btn(e.type === t ? 'check' : icn, lb, () => { if (t === 'cond' && !e.rules.length) e.rules.push({ groups: [[]], to: null }); e.type = t; markDirty(true); }, e.type === t ? 'on' : ''));
   });
-  p.append(grid);
-  const d = h('div', { class: 'bp-detail' }); p.append(d);
-  if (e.type === 'next') d.append(h('div', { class: 'bp-line' }, h('div', { class: 'bp-k' }, '行き先'), targetBtn(e.to, id => { e.to = id; }, 200)));
+  pin(p, grid, 14, 156, 360, 104);
+  if (e.type === 'next') {
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k' }, '行き先'), targetBtn(e.to, id => { e.to = id; }, 272)), 14, 276, 360, 44);
+  }
   if (e.type === 'choice') {
-    d.append(h('div', { class: 'bp-line' }, h('div', { class: 'bp-k' }, '選択肢の数'),
-      [2, 3].map(n => btn(null, n + 'つ', () => { while (e.choices.length < n) e.choices.push({ label: '', to: null }); e.choices.length = n; markDirty(true); }, 'sm opt w96' + (e.choices.length === n ? ' on' : '')))));
+    const cnt = h('div', { class: 'bp-line' }, h('div', { class: 'bp-k mid' }, '選択肢の数'),
+      [2, 3].map(n => btn(e.choices.length === n ? 'check' : null, n + 'つ', () => { while (e.choices.length < n) e.choices.push({ label: '', to: null }); e.choices.length = n; markDirty(true); }, 'sm' + (e.choices.length === n ? ' on' : ''))));
+    $$('.btn', cnt).forEach(x => x.style.width = '122px');
+    pin(p, cnt, 14, 272, 360, 44);
     e.choices.forEach((c, i) => {
       const inp = h('input', { class: 'inp sm', maxlength: 24, value: c.label, placeholder: '選択肢' + CHOICE_ABC[i] + 'の文字' });
       inp.oninput = () => { c.label = inp.value; markDirty(); };
-      d.append(h('div', { class: 'bp-line' }, h('div', { class: 'bp-k abc c' + i }, CHOICE_ABC[i]), inp, targetBtn(c.to, id => { c.to = id; }, 96)));
+      pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'abc c' + i }, CHOICE_ABC[i]), inp, targetBtn(c.to, id => { c.to = id; }, 112)), 14, 324 + i * 52, 360, 44);
     });
   }
   if (e.type === 'cond') {
     e.rules.forEach((r, i) => {
-      d.append(h('div', { class: 'bp-rule' },
+      pin(p, h('div', { class: 'bp-rule' },
         h('button', { class: 'rule-txt', onclick: () => editRule(b, i) }, h('b', null, '条件' + (i + 1) + '　'), ruleText(w, r)),
-        targetBtn(r.to, id => { r.to = id; }, 96)));
+        targetBtn(r.to, id => { r.to = id; }, 100)), 14, 272 + i * 56, 360, 50);
     });
-    const add = btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'sm'); add.style.width = '328px';
-    if (e.rules.length >= 3) add.disabled = true;
-    d.append(h('div', { class: 'bp-line' }, add));
-    d.append(h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらないとき'), targetBtn(e.else, id => { e.else = id; }, 96)));
+    const ay = 272 + e.rules.length * 56;
+    pin(p, e.rules.length < 3 ? btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'sm')
+      : btnOff('plus', '条件をふやす', '条件は3つまでです', 'sm'), 14, ay, 360, 40);
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), targetBtn(e.else, id => { e.else = id; }, 146)), 14, ay + 48, 360, 44);
   }
   if (e.type === 'end') {
     const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
     inp.oninput = () => { e.name = inp.value; markDirty(); };
-    d.append(h('div', { class: 'bp-cap' }, 'エンディングの名前'), h('div', { class: 'bp-line' }, inp));
+    pin(p, h('div', { class: 'p-cap' }, 'エンディングの名前'), 14, 276, 360, 24);
+    pin(p, inp, 14, 304, 360, 42);
+    pin(p, h('div', { class: 'hint' }, 'ここでお話がおしまいになります。'), 14, 354, 360, 24);
   }
-  const iss = (E.chk && E.chk.issues[b.id]) || [];
-  p.append(h('div', { class: 'bp-iss' + (iss.length ? ' bad' : '') }, iss.length ? [ic(ISSUE[iss[0].type].icon), iss[0].msg + (iss.length > 1 ? `（ほか${iss.length - 1}こ）` : '')] : [ic('check'), 'このブロックに問題はありません']));
+  pin(p, b.ep > 1 ? btn('trash', 'このブロックを消す', () => removeBlock(b), 'sm dng') : btnOff('trash', 'このブロックを消す', '最初のブロックは消せません', 'sm'), 174, 532, 200, 40);
   return p;
 }
 /* 条件の編集 */
@@ -224,7 +267,7 @@ function editRule(b, ri) {
     r.groups.forEach((g, gi) => {
       if (gi > 0) cols.appendChild(h('div', { class: 'or-lab' }, 'または'));
       const col = h('div', { class: 'rule-col' }, h('div', { class: 'rc-head' }, 'パターン ' + (gi + 1),
-        r.groups.length > 1 ? btn('x', null, () => { r.groups.splice(gi, 1); draw(); }, 'xs') : null));
+        r.groups.length > 1 ? btn('x', null, () => { r.groups.splice(gi, 1); draw(); }, 'xs dng') : null));
       g.forEach((a, ai) => {
         if (ai > 0) col.appendChild(h('div', { class: 'and-lab' }, 'かつ'));
         const isC = a.t === 'chose' || a.t === 'notchose';
@@ -234,49 +277,56 @@ function editRule(b, ri) {
         const tb = w.blocks[a.b];
         const cl = tb ? tb.end.choices.map((c, i) => [String(i), CHOICE_ABC[i] + (c.label ? '：' + c.label : '')]) : [['0', 'A']];
         col.appendChild(h('div', { class: 'atom' },
-          h('div', { class: 'atom-r' }, sel(KINDS, a.t, v => { a.t = v; draw(); }, 250), btn('x', null, () => { g.splice(ai, 1); draw(); }, 'xs')),
+          h('div', { class: 'atom-r' }, sel(KINDS, a.t, v => { a.t = v; draw(); }, 250), btn('x', null, () => { g.splice(ai, 1); draw(); }, 'xs dng')),
           h('div', { class: 'atom-r' }, sel(bl, a.b, v => { a.b = v; a.c = 0; draw(); }, isC ? 140 : 296), isC ? sel(cl, String(a.c || 0), v => { a.c = +v; }, 150) : null)));
       });
-      const add = btn('plus', 'かつ', () => { g.push({ t: chBlocks.length ? 'chose' : 'pass', b: (chBlocks[0] || blocks[0]).id, c: 0 }); draw(); }, 'sm w160');
-      if (g.length >= 3) add.disabled = true;
-      col.appendChild(add);
+      col.appendChild(g.length < 3 ? btn('plus', 'かつ', () => { g.push({ t: chBlocks.length ? 'chose' : 'pass', b: (chBlocks[0] || blocks[0]).id, c: 0 }); draw(); }, 'sm')
+        : btnOff('plus', 'かつ', '「かつ」は3つまでです', 'sm'));
+      col.lastChild.style.width = '160px';
       cols.appendChild(col);
     });
-    if (r.groups.length < 3) cols.appendChild(h('div', { class: 'or-add' }, btn('plus', 'または', () => { r.groups.push([]); draw(); }, 'sm w160')));
+    if (r.groups.length < 3) { const a = btn('plus', 'または', () => { r.groups.push([]); draw(); }, 'sm'); a.style.width = '160px'; cols.appendChild(h('div', { class: 'or-add' }, a)); }
   }
   draw();
   m = openModal(h('div', { class: 'dlg dlg-rule' },
-    h('div', { class: 'dlg-title' }, `ブロック ${blockLabel(w, b)} の 条件${ri + 1}：当てはまったら → ${r.to && w.blocks[r.to] ? blockLabel(w, w.blocks[r.to]) : '（行き先はマップでえらぶ）'}`),
+    h('div', { class: 'dlg-title' }, `ブロック ${blockLabel(w, b)} の 条件${ri + 1}：当てはまったら ${r.to && w.blocks[r.to] ? blockLabel(w, w.blocks[r.to]) + ' へ' : '（行き先はマップでえらぶ）'}`),
     cols,
     h('div', { class: 'dlg-btns' },
-      btn('check', 'OK', () => { r.groups = r.groups.filter(g => g.length || r.groups.length === 1); b.end.rules[ri] = r; closeModal(m); markDirty(true); }),
-      btn('trash', 'この条件を消す', async () => { closeModal(m); b.end.rules.splice(ri, 1); if (!b.end.rules.length) b.end.type = 'end'; markDirty(true); }),
+      btn('check', 'OK', () => { r.groups = r.groups.filter(g => g.length || r.groups.length === 1); b.end.rules[ri] = r; closeModal(m); markDirty(true); }, 'pri'),
+      btn('trash', 'この条件を消す', () => { closeModal(m); b.end.rules.splice(ri, 1); if (!b.end.rules.length) b.end.type = 'end'; markDirty(true); }, 'dng'),
       btn('x', 'やめる', () => closeModal(m)))));
 }
 /* ---------- ブロックの切りかえ ---------- */
-function blockNav(x, y, wdt) {
+function blockNav(label) {
   const w = E.w, list = blocksSorted(w), i = list.findIndex(b => b.id === E.bid);
-  const box = h('div', { class: 'bnav' },
-    btn('prev', null, () => { E.bid = list[i - 1].id; E.li = null; E.linePage = 0; editorRefresh(); }, 'sm sq' + (i > 0 ? '' : ' dis')),
-    h('div', { class: 'bnav-l' }, w.opts.long ? 'ブロック ' + blockLabel(w, curB()) : '本文'),
-    btn('next', null, () => { E.bid = list[i + 1].id; E.li = null; E.linePage = 0; editorRefresh(); }, 'sm sq' + (i < list.length - 1 ? '' : ' dis')));
-  $$('.dis', box).forEach(b => b.disabled = true);
-  return pos(box, x, y, wdt, 44);
+  const go = d => { E.bid = list[i + d].id; E.li = null; E.linePage = 0; editorRefresh(); };
+  return h('div', { class: 'bnav' },
+    i > 0 ? btn('prev', null, () => go(-1), 'sm') : btnOff('prev', null, 'これが最初のブロックです', 'sm'),
+    h('div', { class: 'bnav-l' }, (w.opts.long ? 'ブロック ' + blockLabel(w, curB()) : '') + label),
+    i < list.length - 1 ? btn('next', null, () => go(1), 'sm') : btnOff('next', null, 'これが最後のブロックです', 'sm'));
 }
-/* ---------- 本文 ---------- */
+/* ---------- 2 文章を書く ---------- */
 function renderText(body) {
   const w = E.w, b = curB();
-  body.appendChild(blockNav(20, 96, 360));
-  body.appendChild(pos(h('div', { class: 'hint' }, '空いた行でページが変わります。' + (w.opts.name ? '名前は【たろう】こんにちは のように書きます。' : '')), 400, 96, 860, 44));
+  const L = h('div', { class: 'panel' }); L.style.cssText = 'left:16px;top:8px;width:840px;height:584px';
+  pin(L, blockNav(w.opts.long ? ' の文章' : '文章'), 12, 10, 812, 42);
   const ta = h('textarea', { class: 'ta', spellcheck: 'false', placeholder: 'ここにお話を書いたり、はりつけたりします。' });
   ta.value = b.text;
-  const info = h('div', { class: 'hint' });
+  const info = h('div', { class: 'hint', style: 'font-weight:bold' });
   const upd = () => { const n = b.text.split('\n').filter(x => x.trim()).length, pg = paginate(b, stageWOf(w), w.opts.name).length; info.textContent = `${n}行・${pg}ページ（いまの文字の大きさで）`; };
   ta.oninput = () => { shiftCues(b, b.text, ta.value); b.text = ta.value; markDirty(); upd(); };
-  body.appendChild(pos(ta, 20, 150, 1240, 480));
-  body.appendChild(pos(info, 20, 646, 800, 52));
-  body.appendChild(pos(btn('wand', '演出へ', () => { E.tab = 'fx'; editorRefresh(); }), 1100, 646, 160, 52));
-  upd(); upd();
+  pin(L, ta, 12, 60, 812, 470);
+  pin(L, info, 12, 540, 600, 30);
+  body.appendChild(L);
+  const R = h('div', { class: 'panel' }); R.style.cssText = 'left:872px;top:8px;width:392px;height:584px';
+  pin(R, h('div', { class: 'p-h' }, ic('info'), '書き方'), 14, 10, 360, 32);
+  const tips = ['空いた行を入れると、ページが変わります。', '1ページに4行まで入ります。長い文は、自動で次のページに続きます。',
+    w.opts.name ? '【たろう】こんにちは と書くと、名前の欄に「たろう」が出ます。' : '名前の欄を使いたいときは「しあげ・送る」でオンにします。',
+    '絵や音は「絵と音」で、行ごとにつけます。'];
+  pin(R, h('div', { class: 'hint', style: 'color:var(--tx);font-size:17px' }, tips.map(t => h('div', { style: 'margin-bottom:12px;display:flex;gap:6px' }, h('span', { style: 'color:var(--pri-d)' }, '●'), h('span', null, t)))), 14, 52, 360, 380);
+  pin(R, btn('next', '次は 絵と音をつける', () => goStep('fx'), 'pri'), 14, 520, 360, 52);
+  body.appendChild(R);
+  upd(); setTimeout(() => ta.focus(), 30);
 }
 function shiftCues(b, oldT, newT) {
   const a = oldT.split('\n'), n = newT.split('\n'); if (a.length === n.length) return;
@@ -291,54 +341,67 @@ function shiftCues(b, oldT, newT) {
   }
   b.cues = out;
 }
-/* ---------- 演出 ---------- */
-function libItems(kind) {
-  const user = E.w.media.filter(m => m.kind === kind).map(m => ({ id: m.id, name: m.name, user: true }));
-  if (kind === 'se') return [...SE_LIST.map(s => ({ id: 'S:' + s[0], name: s[1] })), ...user];
-  if (kind === 'bgm') return [...BGM_LIST.map(s => ({ id: 'M:' + s.id, name: s.name })), ...user];
-  return user;
+/* ---------- 素材ライブラリ（フォルダ） ---------- */
+const PATH_NAME = k => k === '@sample' ? 'サンプルデータ' : k === '@builtin' ? '内蔵の音' : k.startsWith('@c:') ? (SAMPLE_CHARS.find(c => c.c === k.slice(3)) || {}).name
+  : k.startsWith('@cat:') ? ((E.libKind === 'se' ? SE_CATS : BGM_CATS)[+k.slice(5)] || [])[0] : k;
+function libEntries(kind, path) {
+  const w = E.w, user = w.media.filter(m => m.kind === kind);
+  const item = (id, name, src, tag) => ({ type: 'item', id, name, src, tag });
+  const folder = (key, name, count, thumb) => ({ type: 'folder', key, name, count, thumb });
+  const img = kind === 'bg' || kind === 'ch';
+  if (!path.length) {
+    const out = [];
+    if (kind === 'bg') out.push(folder('@sample', 'サンプルデータ', SAMPLE_BG.length));
+    if (kind === 'ch') out.push(folder('@sample', 'サンプルデータ', SAMPLE_CHARS.length));
+    if (!img) out.push(folder('@builtin', '内蔵の音', kind === 'se' ? SE_LIST.length : BGM_LIST.length));
+    for (const f of w.folders[kind]) out.push(folder(f, f, user.filter(m => m.folder === f).length));
+    for (const m of user.filter(m => !m.folder)) out.push(item(m.id, m.name, img ? MEDIA[m.id] : null));
+    return out;
+  }
+  const [k0, k1] = path;
+  if (k0 === '@sample' && kind === 'bg') return SAMPLE_BG.map(x => item(x.id, x.name, x.data, 'サンプル'));
+  if (k0 === '@sample' && kind === 'ch' && !k1) return SAMPLE_CHARS.map(c => { const f = SAMPLE_CH.filter(x => x.c === c.c); return folder('@c:' + c.c, c.name, f.length, f[0].data); });
+  if (k0 === '@sample' && kind === 'ch') return SAMPLE_CH.filter(x => x.c === k1.slice(3)).map(x => item(x.id, x.pose, x.data, 'サンプル'));
+  if (k0 === '@builtin' && !k1) return (kind === 'se' ? SE_CATS : BGM_CATS).map(([n, ids], i) => folder('@cat:' + i, n, ids.length));
+  if (k0 === '@builtin') return ((kind === 'se' ? SE_CATS : BGM_CATS)[+k1.slice(5)] || [, []])[1].map(id => item(id, soundName(w, id), null, '内蔵'));
+  return user.filter(m => m.folder === k0).map(m => item(m.id, m.name, img ? MEDIA[m.id] : null));
 }
+function libCard(en, kind, onOpen) {
+  const isImg = kind === 'bg' || kind === 'ch';
+  if (en.type === 'folder') {
+    return h('div', { class: 'lcard folder', onclick: () => onOpen(en.key) },
+      en.thumb ? h('img', { class: 'lc-img ch', src: en.thumb, draggable: 'false' }) : h('div', { class: 'lc-ic' }, ic('folder', 46)),
+      h('div', { class: 'lc-n' }, en.name + '（' + en.count + '）'));
+  }
+  const el = h('div', { class: 'lcard' + (E.libSel === en.id ? ' sel' : ''), draggable: 'true', onclick: () => {
+    E.libSel = en.id; E.guideMsg = null;
+    if (kind === 'se') playSE(en.id);
+    if (kind === 'bgm') { if (AU.bgmId === en.id) stopBGM(); else playBGM(en.id); }
+    editorRefresh();
+  } },
+    isImg ? h('img', { class: 'lc-img' + (kind === 'ch' ? ' ch' : ''), src: en.src || '', draggable: 'false' }) : h('div', { class: 'lc-ic' }, ic(kind === 'se' ? 'bell' : (AU.bgmId === en.id ? 'stop' : 'music'), 38)),
+    h('div', { class: 'lc-n' }, en.name), en.tag ? h('div', { class: 'lc-tag' }, en.tag) : null);
+  el.ondragstart = e => { E.libSel = en.id; e.dataTransfer.setData('text/nm-media', en.id); };
+  return el;
+}
+/* ---------- 3 絵と音 ---------- */
 function blockEntry(bid) { if (!E.entryCache[bid]) E.entryCache[bid] = entryVisFor(E.w, bid).vis; return E.entryCache[bid]; }
+function visAtLine(li) { return visUntil(curB(), blockEntry(curB().id), li, true); }
 function renderFx(body) {
   const w = E.w, b = curB();
-  // 左：素材
-  const kinds = ['bg', 'ch', 'se', 'bgm'];
-  kinds.forEach((k, i) => body.appendChild(pos(btn(KIND_ICON[k], KIND_NAME[k], () => { stopBGM(); E.libKind = k; E.libPage = 0; E.libSel = null; editorRefresh(); }, 'sm tight opt' + (E.libKind === k ? ' on' : '')), 20 + i * 97, 96, 89, 44)));
-  const items = libItems(E.libKind), per = 6, pages = Math.max(1, Math.ceil(items.length / per));
-  E.libPage = clamp(E.libPage, 0, pages - 1);
-  const lib = pos(h('div', { class: 'lib' }), 20, 150, 380, 396);
-  items.slice(E.libPage * per, E.libPage * per + per).forEach((it, i) => {
-    const el = libCard(it, E.libKind);
-    lib.appendChild(pos(el, (i % 2) * 194, Math.floor(i / 2) * 134, 186, 124));
-  });
-  if (!items.length) lib.appendChild(h('div', { class: 'lib-empty' }, KIND_NAME[E.libKind] + 'の素材がありません。', h('br'), '画像ファイルをここにドロップするか、下のボタンで追加します。'));
-  lib.ondragover = e => e.preventDefault();
-  lib.ondrop = e => { e.preventDefault(); e.stopPropagation(); addMediaFiles([...e.dataTransfer.files], E.libKind); };
-  body.appendChild(lib);
-  body.appendChild(pager(20, 556, 380, E.libPage, pages, p => { E.libPage = p; editorRefresh(); }));
-  const act = h('div', { class: 'row' });
-  const need = () => { if (E.li == null) { toast('先に、まん中の行をえらんでください'); return false; } if (!E.libSel) { toast('先に、左の素材をえらんでください'); return false; } return true; };
-  if (E.libKind === 'bg') act.append(btn('image', 'この行の背景にする', () => need() && setCue(E.li, c => { c.bg = E.libSel; }), 'sm w380'));
-  if (E.libKind === 'ch') ['左', '中央', '右'].forEach((n, s) => act.append(btn(null, n + 'に出す', () => need() && placeCh(E.li, s, E.libSel), 'sm w122')));
-  if (E.libKind === 'se') act.append(btn('bell', 'この行で鳴らす', () => need() && setCue(E.li, c => { c.se = E.libSel; }), 'sm w380'));
-  if (E.libKind === 'bgm') act.append(btn('music', 'この行から流す', () => need() && setCue(E.li, c => { c.bgm = E.libSel; }), 'sm w380'));
-  body.appendChild(pos(act, 20, 610, 380, 44));
-  body.appendChild(pos(btn('up', 'ファイルから追加', async () => addMediaFiles(await pickFiles(E.libKind === 'se' || E.libKind === 'bgm' ? 'audio/*' : 'image/*'), E.libKind), 'sm'), 20, 662, 380, 44));
-  // まん中：行
-  body.appendChild(blockNav(416, 96, 384));
   const pages2 = paginate(b, stageWOf(w), w.opts.name);
+  const focus = E.li == null ? 1 : !E.libSel ? 2 : 3;
+  const P1 = h('div', { class: 'panel' + (focus === 1 ? ' focus' : '') }); P1.style.cssText = 'left:16px;top:8px;width:400px;height:584px';
+  pin(P1, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '1'), '行をえらぶ'), 12, 10, 372, 32);
+  pin(P1, blockNav(''), 12, 48, 372, 42);
   const lines = b.text.split('\n').map((t, li) => ({ t, li })).filter(x => x.t.trim());
   const lp = 8, lpages = Math.max(1, Math.ceil(lines.length / lp));
-  if (E.li != null && E.linePage == null) E.linePage = 0;
   E.linePage = clamp(E.linePage, 0, lpages - 1);
-  const list = pos(h('div', { class: 'lines' }), 416, 150, 384, 474);
   lines.slice(E.linePage * lp, E.linePage * lp + lp).forEach((x, i) => {
     const c = b.cues[x.li] || {}, pg = pageOfLine(pages2, x.li) + 1;
-    const tags = h('div', { class: 'ln-tags' },
-      c.bg ? ic('image') : null, c.ch ? ic('user') : null, c.se ? ic('bell') : null, c.bgm ? ic(c.bgm === 'stop' ? 'stop' : 'music') : null, c.fx ? ic('zap') : null);
-    const row = h('div', { class: 'ln' + (E.li === x.li ? ' sel' : ''), onclick: () => { E.li = x.li; editorRefresh(); } },
-      h('div', { class: 'ln-k' }, h('div', null, `${x.li + 1}行 p${pg}`), tags),
-      h('div', { class: 'ln-t' }, x.t));
+    const tags = h('div', { class: 'ln-tags' }, c.bg ? ic('image') : null, c.ch ? ic('user') : null, c.se ? ic('bell') : null, c.bgm ? ic(c.bgm === 'stop' ? 'stop' : 'music') : null, c.fx ? ic('zap') : null);
+    const row = h('div', { class: 'ln' + (E.li === x.li ? ' sel' : ''), onclick: () => { E.li = x.li; E.guideMsg = null; editorRefresh(); } },
+      h('div', { class: 'ln-k' }, h('div', null, `${x.li + 1}行 p${pg}`), tags), h('div', { class: 'ln-t' }, x.t));
     row.ondragover = e => { e.preventDefault(); row.classList.add('over'); };
     row.ondragleave = () => row.classList.remove('over');
     row.ondrop = async e => {
@@ -348,35 +411,56 @@ function renderFx(body) {
       const fs = [...e.dataTransfer.files]; if (!fs.length) return;
       const ids = await addMediaFiles(fs, E.libKind, true); if (ids[0]) assignToLine(x.li, ids[0], E.libKind);
     };
-    list.appendChild(pos(row, 0, i * 60, 384, 54));
+    pin(P1, row, 12, 98 + i * 54, 372, 48);
   });
-  if (!lines.length) list.appendChild(h('div', { class: 'lib-empty' }, '本文がまだありません。「本文」タブで書いてください。'));
-  body.appendChild(list);
-  body.appendChild(pager(416, 640, 384, E.linePage, lpages, p => { E.linePage = p; editorRefresh(); }));
-  // 右：プレビューと操作
-  renderFxRight(body, b, pages2);
+  if (!lines.length) pin(P1, h('div', { class: 'lib-empty' }, 'まだ文章がありません。', h('br'), '「文章を書く」で書いてから、ここに来てね。'), 12, 98, 372, 120);
+  pin(P1, pager(E.linePage, lpages, p => { E.linePage = p; editorRefresh(); }), 12, 534, 372, 40);
+  body.appendChild(P1);
+  const P2 = h('div', { class: 'panel' + (focus === 2 ? ' focus' : '') }); P2.style.cssText = 'left:428px;top:8px;width:400px;height:584px';
+  pin(P2, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '2'), '入れるものをえらぶ'), 12, 10, 372, 32);
+  const tabs = h('div', { class: 'kind-tabs' }, ['bg', 'ch', 'se', 'bgm'].map(k => btn(KIND_ICON[k], KIND_NAME[k], () => { stopBGM(); E.libKind = k; E.libPath = []; E.libPage = 0; E.libSel = null; editorRefresh(); }, 'sm' + (E.libKind === k ? ' on' : ''))));
+  pin(P2, tabs, 12, 48, 372, 42);
+  const fbar = h('div', { class: 'fbar' },
+    E.libPath.length ? btn('folderup', '上へ', () => { E.libPath.pop(); E.libPage = 0; editorRefresh(); }, 'xs') : null,
+    h('div', { class: 'fpath' }, ic('folder'), E.libPath.length ? E.libPath.map(PATH_NAME).join(' › ') : KIND_NAME[E.libKind] + 'のはじめ'),
+    btn('up', '追加', async () => addMediaFiles(await pickFiles(E.libKind === 'se' || E.libKind === 'bgm' ? 'audio/*' : 'image/*'), E.libKind), 'xs'),
+    btn('box', '整理', () => openManager(E.libKind), 'xs'));
+  pin(P2, fbar, 12, 96, 372, 36);
+  const items = libEntries(E.libKind, E.libPath), per = 6, pages = Math.max(1, Math.ceil(items.length / per));
+  E.libPage = clamp(E.libPage, 0, pages - 1);
+  const grid = pin(P2, h('div', null), 12, 138, 372, 330);
+  items.slice(E.libPage * per, E.libPage * per + per).forEach((en, i) =>
+    pin(grid, libCard(en, E.libKind, k => { E.libPath.push(k); E.libPage = 0; editorRefresh(); }), (i % 2) * 190, Math.floor(i / 2) * 112, 182, 104));
+  if (!items.length) grid.appendChild(h('div', { class: 'lib-empty' }, 'このフォルダは空です。画像や音のファイルをここにドロップするか、「追加」で入れられます。'));
+  grid.ondragover = e => e.preventDefault();
+  grid.ondrop = e => { e.preventDefault(); e.stopPropagation(); addMediaFiles([...e.dataTransfer.files], E.libKind); };
+  pin(P2, pager(E.libPage, pages, p => { E.libPage = p; editorRefresh(); }), 12, 474, 372, 40);
+  const canPut = E.li != null && E.libSel && libKindOf(E.libSel) === E.libKind;
+  const why = E.li == null ? '先に ① で行をえらんでください' : '先に、入れたいものをえらんでください';
+  if (E.libKind === 'ch') {
+    const pos3 = h('div', { class: 'row', style: 'gap:4px' }, SLOT_NAME.map((n, s) => btn(null, n, () => { E.chSlot = s; editorRefresh(); }, 'sm' + (E.chSlot === s ? ' on' : ''))));
+    $$('.btn', pos3).forEach(x => x.style.width = '58px');
+    pin(P2, pos3, 12, 524, 182, 50);
+    pin(P2, canPut ? btn('check', SLOT_NAME[E.chSlot] + 'に入れる', () => { placeCh(E.li, E.chSlot, E.libSel); guide(`${E.li + 1}行目の${SLOT_NAME[E.chSlot]}に、人物を入れました`); }, 'pri') : btnOff('check', SLOT_NAME[E.chSlot] + 'に入れる', why), 200, 524, 184, 50);
+  } else {
+    pin(P2, canPut ? btn('check', 'この行に入れる', () => { assignToLine(E.li, E.libSel, E.libKind); guide(`${E.li + 1}行目に「${mediaName(w, E.libSel)}」を入れました`); }, 'pri') : btnOff('check', 'この行に入れる', why), 12, 524, 372, 50);
+  }
+  body.appendChild(P2);
+  renderFxCheck(body, b, pages2, focus === 3);
 }
-function pager(x, y, wdt, page, pages, go) {
+function libKindOf(id) {
+  if (!id) return null;
+  if (SE_MAP[id]) return 'se'; if (BGM_MAP[id]) return 'bgm';
+  if (SAMPLE_MAP[id]) return id.startsWith('I:bg') ? 'bg' : 'ch';
+  const m = E.w.media.find(x => x.id === id); return m ? m.kind : null;
+}
+function pager(page, pages, go) {
   const r = h('div', { class: 'pager2' },
-    btn('prev', '前へ', () => go(page - 1), 'sm' + (page > 0 ? '' : ' dis')),
-    h('div', { class: 'pg-n sm' }, `${page + 1} / ${pages}`),
-    btn('next', '次へ', () => go(page + 1), 'sm' + (page < pages - 1 ? '' : ' dis')));
-  $$('.dis', r).forEach(b => b.disabled = true);
-  return pos(r, x, y, wdt, 44);
-}
-function libCard(it, kind) {
-  const isImg = kind === 'bg' || kind === 'ch';
-  const el = h('div', { class: 'lcard' + (E.libSel === it.id ? ' sel' : ''), draggable: 'true', onclick: () => {
-    E.libSel = it.id;
-    if (kind === 'se') playSE(it.id);
-    if (kind === 'bgm') { if (AU.bgmId === it.id) stopBGM(); else playBGM(it.id); }
-    editorRefresh();
-  } },
-    isImg ? h('img', { class: 'lc-img' + (kind === 'ch' ? ' ch' : ''), src: MEDIA[it.id] || '', draggable: 'false' }) : h('div', { class: 'lc-ic' }, ic(kind === 'se' ? 'bell' : (AU.bgmId === it.id ? 'stop' : 'music'), 40)),
-    h('div', { class: 'lc-n' }, it.name),
-    !isImg && !it.user ? h('div', { class: 'lc-tag' }, '内蔵') : null);
-  el.ondragstart = e => { E.libSel = it.id; e.dataTransfer.setData('text/nm-media', it.id); };
-  return el;
+    page > 0 ? btn('prev', '前へ', () => go(page - 1), 'sm') : btnOff('prev', '前へ', '最初のページです', 'sm'),
+    h('div', { class: 'pg-n' }, `${page + 1} / ${pages}`),
+    page < pages - 1 ? btn('next', '次へ', () => go(page + 1), 'sm') : btnOff('next', '次へ', '最後のページです', 'sm'));
+  $$('.btn', r).forEach(b => b.style.width = '120px');
+  return r;
 }
 function setCue(li, fn) {
   const b = curB(), c = b.cues[li] = b.cues[li] || {};
@@ -386,7 +470,6 @@ function setCue(li, fn) {
   if (!Object.keys(c).length) delete b.cues[li];
   markDirty(true); return true;
 }
-function visAtLine(li) { return visUntil(curB(), blockEntry(curB().id), li, true); }
 function placeCh(li, s, id) {
   const cur = visAtLine(li).ch[s];
   return setCue(li, c => { c.ch = c.ch || {}; c.ch[s] = { m: id, s: cur ? cur.s : 1, y: cur ? cur.y : 0 }; });
@@ -397,71 +480,63 @@ function assignToLine(li, id, kind) {
   else if (kind === 'se') setCue(li, c => { c.se = id; });
   else if (kind === 'bgm') setCue(li, c => { c.bgm = id; });
 }
-function renderFxRight(body, b, pages2) {
-  const w = E.w, X = 816, W = 444, li = E.li;
-  // プレビュー
-  const pw = w.ratio === '4:3' ? 333 : 444, pv = pos(h('div', { class: 'prev' }), X + (W - pw) / 2, 96, pw, 250);
+function renderFxCheck(body, b, pages2, focus) {
+  const w = E.w, li = E.li;
+  const P3 = h('div', { class: 'panel' + (focus ? ' focus' : '') }); P3.style.cssText = 'left:840px;top:8px;width:424px;height:584px';
+  pin(P3, h('div', { class: 'p-h' }, h('span', { class: 'n' }, '3'), 'たしかめる'), 12, 10, 396, 32);
+  const pw = w.ratio === '4:3' ? 264 : 352, pv = pin(P3, h('div', { class: 'prev' }), 12 + (396 - pw) / 2, 46, pw, 198);
   const vis = li != null ? visAtLine(li) : blockEntry(b.id);
-  if (vis.bg && MEDIA[vis.bg]) pv.appendChild(h('img', { class: 'bgimg', src: MEDIA[vis.bg] }));
-  vis.ch.forEach((c, s) => {
-    if (!c || !MEDIA[c.m]) return;
-    pv.appendChild(h('img', { class: 'chimg', src: MEDIA[c.m], style: `left:${CH_X[s]}%;height:${86 * c.s}%;bottom:${c.y * 30 * 250 / 720}px` }));
-  });
-  if (li != null && E.chSlot != null) pv.appendChild(h('div', { class: 'slot-mark', style: `left:${CH_X[E.chSlot]}%` }, ['左', '中央', '右'][E.chSlot]));
-  body.appendChild(pv);
-  const c = (li != null && b.cues[li]) || {};
-  const nm = id => id ? (w.media.find(m => m.id === id) || { name: '？' }).name : '−';
-  const chTxt = ['左', '中', '右'].map((n, s) => n + ' ' + (vis.ch[s] ? nm(vis.ch[s].m) : '−')).join('・');
-  const info = pos(h('div', { class: 'fx-info' },
-    h('div', null, li == null ? '行をえらんでください' : `${li + 1}行目・${pageOfLine(pages2, li) + 1}ページ目　背景：${vis.bg ? nm(vis.bg) : 'なし'}`),
-    h('div', null, '人物：' + chTxt),
-    h('div', null, `効果音：${c.se ? soundName(w, c.se) : '−'}　BGM：${c.bgm ? soundName(w, c.bgm) : (vis.bgm ? soundName(w, vis.bgm) + '（つづき）' : '−')}　明滅：${c.fx ? c.fx + '回' : 'なし'}`)), X, 352, W, 60);
-  body.appendChild(info);
-  const rowY = [414, 460, 506, 552, 598], lab = (t, y) => body.appendChild(pos(h('div', { class: 'fx-lab' }, t), X, y, 60, 40));
-  const row = (y, bs, bw) => { const r = pos(h('div', { class: 'row' }), X + 64, y, 380, 40); bs.forEach(b2 => { b2.style.width = bw + 'px'; r.appendChild(b2); }); body.appendChild(r); return r; };
-  const L = fn => () => { if (li == null) { toast('先に、まん中の行をえらんでください'); return; } fn(); };
-  lab('背景', rowY[0]);
-  row(rowY[0], [btn(null, 'なしにする', L(() => setCue(li, x => { x.bg = 'none'; })), 'xs2'), btn(null, '指定を消す', L(() => setCue(li, x => { delete x.bg; })), 'xs2')], 187);
-  lab('人物', rowY[1]);
-  row(rowY[1], ['左', '中央', '右'].map((n, s) => btn(null, n, () => { E.chSlot = s; editorRefresh(); }, 'xs2 opt' + (E.chSlot === s ? ' on' : ''))), 122);
-  lab('調整', rowY[2]);
-  const adj = (fn) => L(() => {
-    const s = E.chSlot, cur = visAtLine(li).ch[s];
-    if (!cur) { toast('その位置に人物がいません'); return; }
-    setCue(li, x => { x.ch = x.ch || {}; const v = x.ch[s] && x.ch[s].m !== 'none' ? x.ch[s] : { m: cur.m, s: cur.s, y: cur.y }; fn(v); x.ch[s] = v; });
-  });
-  row(rowY[2], [btn(null, '退場', L(() => setCue(li, x => { x.ch = x.ch || {}; x.ch[E.chSlot] = { m: 'none' }; })), 'xs2'),
-    btn(null, 'けす', L(() => setCue(li, x => { if (x.ch) delete x.ch[E.chSlot]; })), 'xs2'),
-    btn(null, '小', adj(v => { v.s = Math.max(0.5, +(v.s - 0.1).toFixed(1)); }), 'xs2'),
-    btn(null, '大', adj(v => { v.s = Math.min(1.6, +(v.s + 0.1).toFixed(1)); }), 'xs2'),
-    btn(null, '上', adj(v => { v.y = Math.min(8, v.y + 1); }), 'xs2'),
-    btn(null, '下', adj(v => { v.y = Math.max(-8, v.y - 1); }), 'xs2')], 58);
-  lab('音', rowY[3]);
-  row(rowY[3], [btn(null, '効果音を消す', L(() => setCue(li, x => { delete x.se; })), 'xs2'), btn(null, 'BGMを止める', L(() => setCue(li, x => { x.bgm = 'stop'; })), 'xs2'), btn(null, 'BGM指定を消す', L(() => setCue(li, x => { delete x.bgm; })), 'xs2')], 122);
-  lab('明滅', rowY[4]);
-  row(rowY[4], ['なし', 1, 2, 3, 4, 5].map((n, i) => btn(null, String(n), L(() => setCue(li, x => { x.fx = i || null; })), 'xs2 opt' + ((c.fx || 0) === i && li != null ? ' on' : ''))), 58);
-  body.appendChild(pos(btn('play', 'この行から見る', L(async () => { await flushSave(); playWork(w, { test: true, loadMedia: false, bid: b.id, li, onBack: () => { showScreen('edit'); APP.key = editorKey; editorRefresh(); } }); }), 'xs2'), X, 646, W, 40));
+  if (vis.bg && mediaSrc(vis.bg)) pv.appendChild(h('img', { class: 'bgimg', src: mediaSrc(vis.bg) }));
+  vis.ch.forEach((c, s) => { if (c && mediaSrc(c.m)) pv.appendChild(h('img', { class: 'chimg', src: mediaSrc(c.m), style: `left:${CH_X[s]}%;height:${86 * c.s}%;bottom:${c.y * 30 * 198 / 720}px` })); });
+  if (li == null) { pin(P3, h('div', { class: 'lib-empty' }, '① で行をえらぶと、その行の画面と、その行でおきることが出ます。'), 12, 252, 396, 100); body.appendChild(P3); return; }
+  pin(P3, h('div', { class: 'p-cap' }, `${li + 1}行目でおきること`, h('span', { style: 'font-size:13px;color:var(--pri-d);margin-left:6px' }, '（オレンジ＝この行）')), 12, 250, 396, 24);
+  const list = pin(P3, h('div', null), 12, 276, 396, 260);
+  const c = b.cues[li] || {}, nm = id => mediaName(w, id);
+  const ev = (k, v, here, ...bs) => list.appendChild(h('div', { class: 'ev' }, h('div', { class: 'ev-k' }, k), h('div', { class: 'ev-v' + (here ? ' here' : ''), title: v }, v), ...bs));
+  const X = (lb, fn, cls = '') => btn(null, lb, fn, 'xs ' + cls);
+  if (c.bg) ev('背景', c.bg === 'none' ? 'なし' : nm(c.bg), true, X('はずす', () => setCue(li, x => { delete x.bg; }), 'dng'));
+  else if (vis.bg) ev('背景', nm(vis.bg) + '（前から）', false, X('なしにする', () => setCue(li, x => { x.bg = 'none'; })));
+  else ev('背景', 'なし', false);
+  for (let s = 0; s < 3; s++) {
+    const cc = c.ch && c.ch[s], cur = vis.ch[s];
+    const adj = fn => () => setCue(li, x => { x.ch = x.ch || {}; const v = x.ch[s] && x.ch[s].m !== 'none' ? x.ch[s] : { m: cur.m, s: cur.s, y: cur.y }; fn(v); x.ch[s] = v; });
+    const tools = () => [X('小', adj(v => { v.s = Math.max(0.5, +(v.s - 0.1).toFixed(1)); })), X('大', adj(v => { v.s = Math.min(1.6, +(v.s + 0.1).toFixed(1)); })),
+      X('上', adj(v => { v.y = Math.min(8, v.y + 1); })), X('下', adj(v => { v.y = Math.max(-8, v.y - 1); }))];
+    if (cc && cc.m === 'none') ev('人物' + SLOT_NAME[s], '退場', true, X('はずす', () => setCue(li, x => { delete x.ch[s]; }), 'dng'));
+    else if (cc) ev('人物' + SLOT_NAME[s], nm(cc.m), true, ...tools(), X('はずす', () => setCue(li, x => { delete x.ch[s]; }), 'dng'));
+    else if (cur) ev('人物' + SLOT_NAME[s], nm(cur.m) + '（前から）', false, ...tools(), X('退場', () => setCue(li, x => { x.ch = x.ch || {}; x.ch[s] = { m: 'none' }; })));
+  }
+  if (c.se) ev('効果音', nm(c.se), true, X('▶', () => playSE(c.se)), X('はずす', () => setCue(li, x => { delete x.se; }), 'dng'));
+  if (c.bgm) ev('BGM', c.bgm === 'stop' ? '止める' : nm(c.bgm), true, X('はずす', () => setCue(li, x => { delete x.bgm; }), 'dng'));
+  else if (vis.bgm) ev('BGM', nm(vis.bgm) + '（前から）', false, X('止める', () => setCue(li, x => { x.bgm = 'stop'; })));
+  ev('白く明滅', c.fx ? c.fx + '回' : 'なし', !!c.fx,
+    (c.fx || 0) > 0 ? X('−', () => setCue(li, x => { x.fx = (x.fx || 0) - 1 || null; })) : btnOff(null, '−', 'もう明滅しない設定です', 'xs'),
+    (c.fx || 0) < 5 ? X('＋', () => setCue(li, x => { x.fx = (x.fx || 0) + 1; })) : btnOff(null, '＋', '明滅は5回までです', 'xs'));
+  $$('.ev .btn', list).forEach(x => { if (x.textContent.length <= 1) x.style.width = '34px'; });
+  pin(P3, btn('play', 'この行から見る', async () => { stopBGM(); await flushSave(); playWork(w, { test: true, loadMedia: false, bid: b.id, li, onBack: backToEditor }); }, 'sm'), 12, 534, 396, 40);
+  body.appendChild(P3);
 }
-/* ---------- 素材 ---------- */
+/* ---------- 素材の追加・整理 ---------- */
 async function addMediaFiles(files, kind, quiet) {
   const ids = [];
+  const folder = E.libPath.length === 1 && !E.libPath[0].startsWith('@') ? E.libPath[0] : '';
   for (const f of files) {
     let k = kind, data;
-    if (/^video\//.test(f.type)) { toast('動画は使えません'); continue; }
+    if (/^video\//.test(f.type)) { guide('動画は使えません', true); continue; }
     if (/^image\//.test(f.type)) {
       if (k !== 'bg' && k !== 'ch') k = 'bg';
-      try { data = (await shrinkImage(await readAsDataURL(f), k)).data; } catch (e) { toast('画像を読みこめませんでした：' + f.name); continue; }
+      try { data = (await shrinkImage(await readAsDataURL(f), k)).data; } catch (e) { guide('画像を読みこめませんでした：' + f.name, true); continue; }
     } else if (/^audio\//.test(f.type) || /\.(mp3|wav|ogg|m4a)$/i.test(f.name)) {
       if (k !== 'se' && k !== 'bgm') k = 'se';
-      if (f.size > 3 * 1048576) { toast('音のファイルは3MBまでです：' + f.name); continue; }
+      if (f.size > 3 * 1048576) { guide('音のファイルは3MBまでです：' + f.name, true); continue; }
       data = await readAsDataURL(f);
-    } else { toast('使えないファイルです：' + f.name); continue; }
+    } else { guide('使えないファイルです：' + f.name, true); continue; }
     const id = uid(), name = f.name.replace(/\.[^.]+$/, '').slice(0, 20);
     await dbPut('media', { id, wid: E.w.id, data });
-    MEDIA[id] = data; E.w.media.push({ id, kind: k, name, size: dataSize(data) }); ids.push(id);
+    MEDIA[id] = data; E.w.media.push({ id, kind: k, name, size: dataSize(data), folder: k === kind ? folder : '' }); ids.push(id);
     if (k === kind) E.libSel = id;
   }
-  if (ids.length) { if (!quiet) toast(ids.length + 'この素材を追加しました'); markDirty(true); }
+  if (ids.length) { if (!quiet) guide(ids.length + 'この素材を追加しました'); markDirty(true); if ($('.dlg-mg')) drawManager(); }
   return ids;
 }
 function usageOf(id) {
@@ -485,96 +560,147 @@ async function removeMedia(ids) {
   if (set.has(w.titleImg)) w.titleImg = null;
   w.media = w.media.filter(m => !set.has(m.id));
   for (const id of ids) { await dbDel('media', id); delete MEDIA[id]; delete AU.bufs[id]; }
-  E.medSel = null; E.libSel = null; markDirty(true);
+  if (set.has(E.libSel)) E.libSel = null;
+  markDirty(true);
 }
-function renderMedia(body) {
-  const w = E.w;
-  ['bg', 'ch', 'se', 'bgm'].forEach((k, i) => body.appendChild(pos(btn(KIND_ICON[k], KIND_NAME[k] + '（' + w.media.filter(m => m.kind === k).length + '）', () => { stopBGM(); E.medKind = k; E.medPage = 0; E.medSel = null; editorRefresh(); }, 'sm opt' + (E.medKind === k ? ' on' : '')), 20 + i * 162, 96, 154, 44)));
-  const items = w.media.filter(m => m.kind === E.medKind), per = 8, pages = Math.max(1, Math.ceil(items.length / per));
-  E.medPage = clamp(E.medPage, 0, pages - 1);
-  const grid = pos(h('div', { class: 'lib' }), 20, 150, 860, 420);
-  grid.ondragover = e => e.preventDefault();
-  grid.ondrop = e => { e.preventDefault(); e.stopPropagation(); addMediaFiles([...e.dataTransfer.files], E.medKind); };
-  items.slice(E.medPage * per, E.medPage * per + per).forEach((m, i) => {
-    const isImg = m.kind === 'bg' || m.kind === 'ch', u = usageOf(m.id);
-    const card = h('div', { class: 'mcard' + (E.medSel === m.id ? ' sel' : ''), onclick: () => { E.medSel = m.id; editorRefresh(); } },
-      isImg ? h('img', { class: 'lc-img' + (m.kind === 'ch' ? ' ch' : ''), src: MEDIA[m.id] || '' }) : h('div', { class: 'lc-ic' }, ic(KIND_ICON[m.kind], 48)),
-      h('div', { class: 'lc-n' }, m.name), h('div', { class: 'mc-u' + (u ? '' : ' no') }, u ? `${u}か所で使用` : '使っていない'));
-    grid.appendChild(pos(card, (i % 4) * 220, Math.floor(i / 4) * 210, 200, 200));
+/* 素材の整理（フォルダ分け） */
+const MG = { kind: 'bg', folder: '', page: 0, sel: null, fpage: 0 };
+function openManager(kind) {
+  Object.assign(MG, { kind, folder: '', page: 0, sel: null, fpage: 0 });
+  MG.modal = openModal(h('div', { class: 'dlg dlg-mg' }), { close: false });
+  drawManager();
+}
+function drawManager() {
+  const w = E.w, d = $('.dlg-mg'); if (!d) return;
+  d.innerHTML = '';
+  const close = () => { closeModal(MG.modal); editorRefresh(); };
+  pin(d, h('div', { class: 'dlg-title' }, '素材の整理（自分で入れた素材）'), 24, 18, 700, 32);
+  pin(d, btn('x', 'とじる', close, 'sm'), 1036, 14, 120, 42);
+  pin(d, h('div', { class: 'kind-tabs' }, ['bg', 'ch', 'se', 'bgm'].map(k => btn(KIND_ICON[k], KIND_NAME[k], () => { Object.assign(MG, { kind: k, folder: '', page: 0, sel: null, fpage: 0 }); drawManager(); }, 'sm' + (MG.kind === k ? ' on' : '')))), 24, 64, 560, 42);
+  const fl = ['', ...w.folders[MG.kind]], fper = 7, fpages = Math.max(1, Math.ceil(fl.length / fper));
+  MG.fpage = clamp(MG.fpage, 0, fpages - 1);
+  pin(d, h('div', { class: 'p-cap' }, 'フォルダ'), 24, 118, 260, 24);
+  fl.slice(MG.fpage * fper, MG.fpage * fper + fper).forEach((f, i) => {
+    const n = w.media.filter(m => m.kind === MG.kind && m.folder === f).length;
+    const b = btn('folder', (f || 'フォルダなし') + '（' + n + '）', () => { MG.folder = f; MG.page = 0; MG.sel = null; drawManager(); }, 'sm' + (MG.folder === f ? ' on' : ''));
+    b.style.justifyContent = 'flex-start';
+    pin(d, b, 24, 146 + i * 48, 260, 42);
   });
-  if (!items.length) grid.appendChild(h('div', { class: 'lib-empty' }, KIND_NAME[E.medKind] + 'の素材はまだありません。ファイルをここにドロップしても追加できます。' + (E.medKind === 'se' || E.medKind === 'bgm' ? '（内蔵の音は「演出」タブでえらべます）' : '')));
-  body.appendChild(grid);
-  body.appendChild(pager(20, 586, 420, E.medPage, pages, p => { E.medPage = p; editorRefresh(); }));
-  body.appendChild(pos(btn('up', 'ファイルから追加', async () => addMediaFiles(await pickFiles(E.medKind === 'se' || E.medKind === 'bgm' ? 'audio/*' : 'image/*'), E.medKind), 'sm'), 20, 646, 300, 44));
-  body.appendChild(pos(btn('trash', '使っていない素材を消す', async () => {
+  pin(d, pagerSmall(MG.fpage, fpages, p => { MG.fpage = p; drawManager(); }), 24, 498, 260, 40);
+  pin(d, btn('plus', '新しいフォルダ', async () => {
+    const n = await askText('新しいフォルダの名前'); if (!n) return;
+    if (n.startsWith('@') || w.folders[MG.kind].includes(n)) { toast('その名前は使えません'); return; }
+    w.folders[MG.kind].push(n); MG.folder = n; markDirty(); drawManager();
+  }, 'sm'), 24, 546, 260, 42);
+  const fsel = MG.folder;
+  pin(d, fsel ? btn('pencil', '名前を変える', async () => {
+    const n = await askText('フォルダの新しい名前', fsel); if (!n || n === fsel) return;
+    if (n.startsWith('@') || w.folders[MG.kind].includes(n)) { toast('その名前は使えません'); return; }
+    w.folders[MG.kind] = w.folders[MG.kind].map(x => x === fsel ? n : x);
+    w.media.forEach(m => { if (m.kind === MG.kind && m.folder === fsel) m.folder = n; }); MG.folder = n; markDirty(); drawManager();
+  }, 'xs') : btnOff('pencil', '名前を変える', '「フォルダなし」の名前は変えられません', 'xs'), 24, 596, 126, 34);
+  pin(d, fsel ? btn('trash', '消す', async () => {
+    if (!(await okAsk(`フォルダ「${fsel}」を消しますか？`, '中の素材は消えずに「フォルダなし」に移ります'))) return;
+    w.folders[MG.kind] = w.folders[MG.kind].filter(x => x !== fsel);
+    w.media.forEach(m => { if (m.kind === MG.kind && m.folder === fsel) m.folder = ''; }); MG.folder = ''; markDirty(); drawManager();
+  }, 'xs dng') : btnOff('trash', '消す', '「フォルダなし」は消せません', 'xs'), 158, 596, 126, 34);
+  const items = w.media.filter(m => m.kind === MG.kind && m.folder === MG.folder), per = 12, pages = Math.max(1, Math.ceil(items.length / per));
+  MG.page = clamp(MG.page, 0, pages - 1);
+  pin(d, h('div', { class: 'p-cap' }, (MG.folder || 'フォルダなし') + ' の素材'), 304, 118, 560, 24);
+  const isImg = MG.kind === 'bg' || MG.kind === 'ch';
+  items.slice(MG.page * per, MG.page * per + per).forEach((m, i) => {
+    const el = h('div', { class: 'lcard' + (MG.sel === m.id ? ' sel' : ''), onclick: () => { MG.sel = m.id; drawManager(); } },
+      isImg ? h('img', { class: 'lc-img' + (m.kind === 'ch' ? ' ch' : ''), src: MEDIA[m.id] || '' }) : h('div', { class: 'lc-ic' }, ic(KIND_ICON[m.kind], 36)),
+      h('div', { class: 'lc-n' }, m.name));
+    pin(d, el, 304 + (i % 4) * 142, 146 + Math.floor(i / 4) * 116, 134, 108);
+  });
+  if (!items.length) pin(d, h('div', { class: 'lib-empty' }, 'ここには素材がありません。「ファイルから追加」で入れられます（サンプルと内蔵の音は、整理しなくても使えます）。'), 304, 146, 560, 100);
+  pin(d, pagerSmall(MG.page, pages, p => { MG.page = p; drawManager(); }), 304, 498, 560, 40);
+  pin(d, btn('up', 'ファイルから追加', async () => {
+    const fs = await pickFiles(isImg ? 'image/*' : 'audio/*'); const save = E.libPath; E.libPath = MG.folder ? [MG.folder] : [];
+    await addMediaFiles(fs, MG.kind); E.libPath = save;
+  }, 'sm'), 304, 546, 272, 42);
+  pin(d, btn('trash', '使っていない素材を消す', async () => {
     const un = w.media.filter(m => !usageOf(m.id)).map(m => m.id);
     if (!un.length) { toast('使っていない素材はありません'); return; }
-    if (await okAsk(`使っていない素材 ${un.length}こ を消しますか？`, 'もとにもどせません')) removeMedia(un);
-  }, 'sm'), 336, 646, 300, 44));
-  const total = w.media.reduce((a, m) => a + (m.size || 0), 0);
-  body.appendChild(pos(h('div', { class: 'hint' }, '素材の合計 ' + fmtSize(total)), 652, 646, 228, 44));
-  // 右
-  const p = pos(h('div', { class: 'panel mpanel' }), 900, 90, 360, 616);
-  const m = items.find(x => x.id === E.medSel);
-  if (!m) p.appendChild(h('div', { class: 'lib-empty' }, '素材をえらぶと、名前の変更や削除ができます。'));
+    if (await okAsk(`使っていない素材 ${un.length}こ を消しますか？`, 'もとにもどせません')) { await removeMedia(un); drawManager(); }
+  }, 'sm dng'), 592, 546, 272, 42);
+  const m = items.find(x => x.id === MG.sel);
+  const R = pin(d, h('div', { class: 'panel', style: 'background:var(--bg)' }), 880, 118, 276, 470);
+  if (!m) R.appendChild(h('div', { class: 'lib-empty' }, '素材をえらぶと、名前を変えたり、フォルダを移したり、消したりできます。'));
   else {
-    const isImg = m.kind === 'bg' || m.kind === 'ch';
-    p.append(isImg ? h('div', { class: 'mp-prev' }, h('img', { src: MEDIA[m.id] })) : h('div', { class: 'mp-prev' }, ic(KIND_ICON[m.kind], 64)));
+    pin(R, isImg ? h('img', { src: MEDIA[m.id], style: 'object-fit:contain;background:#fff;border-radius:8px' }) : h('div', { class: 'lc-ic', style: 'position:static;height:100%' }, ic(KIND_ICON[m.kind], 56)), 12, 12, 248, 140);
+    pin(R, h('div', { class: 'p-cap' }, '名前'), 12, 160, 248, 22);
     const inp = h('input', { class: 'inp sm', maxlength: 20, value: m.name }); inp.oninput = () => { m.name = inp.value; markDirty(); };
-    p.append(h('div', { class: 'bp-cap' }, '名前'), inp,
-      h('div', { class: 'mp-info' }, `${usageOf(m.id)}か所で使用・${fmtSize(m.size || 0)}`),
-      !isImg ? btn('play', '試聴する', () => m.kind === 'se' ? playSE(m.id) : (AU.bgmId === m.id ? stopBGM() : playBGM(m.id)), 'sm w320') : null,
-      btn('trash', 'この素材を消す', async () => { if (await okAsk('「' + m.name + '」を消しますか？', '使っている行の指定も消えます')) removeMedia([m.id]); }, 'sm w320'));
+    pin(R, inp, 12, 184, 248, 42);
+    pin(R, h('div', { class: 'p-cap' }, 'フォルダを移す'), 12, 234, 248, 22);
+    const s = h('select', { class: 'sel' }, ['', ...w.folders[MG.kind]].map(f => { const o = h('option', { value: f }, f || 'フォルダなし'); if (f === m.folder) o.selected = true; return o; }));
+    s.onchange = () => { m.folder = s.value; markDirty(); drawManager(); };
+    pin(R, s, 12, 258, 248, 40);
+    pin(R, h('div', { class: 'hint' }, `${usageOf(m.id)}か所で使っています・${fmtSize(m.size || 0)}`), 12, 306, 248, 24);
+    if (!isImg) pin(R, btn('play', '試聴', () => m.kind === 'se' ? playSE(m.id) : (AU.bgmId === m.id ? stopBGM() : playBGM(m.id)), 'sm'), 12, 340, 248, 42);
+    pin(R, btn('trash', 'この素材を消す', async () => { if (await okAsk('「' + m.name + '」を消しますか？', '使っている行の指定も消えます')) { await removeMedia([m.id]); MG.sel = null; drawManager(); } }, 'sm dng'), 12, 412, 248, 42);
   }
-  body.appendChild(p);
 }
-/* ---------- 作品の設定 ---------- */
+function pagerSmall(page, pages, go) {
+  const r = h('div', { class: 'pager2' },
+    page > 0 ? btn('prev', null, () => go(page - 1), 'sm') : btnOff('prev', null, '最初のページです', 'sm'),
+    h('div', { class: 'pg-n' }, `${page + 1} / ${pages}`),
+    page < pages - 1 ? btn('next', null, () => go(page + 1), 'sm') : btnOff('next', null, '最後のページです', 'sm'));
+  $$('.btn', r).forEach(b => b.style.width = '60px');
+  return r;
+}
+/* ---------- 4 しあげ・送る ---------- */
 const UI_COLORS = ['#1e3a7b', '#16224a', '#1f6b4a', '#9b2335', '#5b2a86', '#6b4423', '#2b2b2b', '#c2255c'];
 const TX_COLORS = ['#ffffff', '#fff6d8', '#cfe8ff', '#ffe066', '#ffc9dc', '#c3fae8', '#dddddd', '#1a1a1a'];
 function renderWorkTab(body) {
   const w = E.w;
-  const L = h('div', { class: 'wk-col' }), R = h('div', { class: 'wk-col' });
   const row = (label, ...kids) => h('div', { class: 'wk-row' }, h('div', { class: 'wk-l' }, label), ...kids);
-  const opt = (cur, list, on) => list.map(([v, lb]) => btn(null, lb, () => on(v), 'sm opt w140' + (cur === v ? ' on' : '')));
-  const ti = h('input', { class: 'inp sm', maxlength: 30, value: w.title }); ti.oninput = () => { w.title = ti.value; markDirty(); };
-  const au = h('input', { class: 'inp sm', maxlength: 16, value: w.author }); au.oninput = () => { w.author = au.value; markDirty(); };
-  const bgs = [null, ...w.media.filter(m => m.kind === 'bg').map(m => m.id)];
-  const ti2 = bgs.indexOf(w.titleImg);
-  L.append(row('タイトル', ti), row('作者名', au),
-    row('改造', ...opt(w.editable, [[true, 'OK'], [false, 'だめ']], v => { w.editable = v; markDirty(true); })),
-    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })),
-    row('タイトル画面', ...opt(w.opts.title, [[true, 'つける'], [false, 'つけない']], v => { w.opts.title = v; markDirty(true); })),
-    row('タイトル画像', btn('prev', null, () => { w.titleImg = bgs[(ti2 - 1 + bgs.length) % bgs.length]; markDirty(true); }, 'sm sq'),
-      h('div', { class: 'wk-val' }, w.titleImg ? (w.media.find(m => m.id === w.titleImg) || {}).name : 'なし'),
-      btn('next', null, () => { w.titleImg = bgs[(ti2 + 1) % bgs.length]; markDirty(true); }, 'sm sq')),
-    row('名前欄', ...opt(w.opts.name, [[true, 'オン'], [false, 'オフ']], v => { w.opts.name = v; markDirty(true); })),
-    h('div', { class: 'wk-row' }, btn('down', 'この作品を書き出す（Teamsで送る用）', async () => { await flushSave(); exportWork(w); }, 'sm w440')));
-  const usedChoice = Object.values(w.blocks).some(b => b.end.type === 'choice' || b.end.type === 'cond') || Object.values(w.blocks).some(b => b.slot > 0);
+  const opt = (cur, list, on) => list.map(([v, lb, off]) => off && cur !== v ? btnOff(null, lb, off, 'sm') : btn(cur === v ? 'check' : null, lb, () => { if (cur !== v) on(v); }, 'sm' + (cur === v ? ' on' : '')));
+  const usedBranch = Object.values(w.blocks).some(b => b.end.type === 'choice' || b.end.type === 'cond' || b.slot > 0);
   const usedCond = Object.values(w.blocks).some(b => b.end.type === 'cond');
-  R.append(
-    row('シナリオ', ...opt(w.opts.long, [[true, '長い'], [false, '1話完結']], v => {
-      if (!v && Object.keys(w.blocks).length > 1) { toast('ブロックが2つ以上あるので、1話完結にはできません'); return; }
-      w.opts.long = v; if (!v) { w.opts.branch = false; w.opts.flag = false; } E.tab = 'work'; markDirty(true);
-    })),
-    row('分岐', ...opt(w.opts.branch, [[true, 'する'], [false, 'しない']], v => {
-      if (v && !w.opts.long) { toast('1話完結では分岐できません'); return; }
-      if (!v && usedChoice) { toast('選択肢・条件・2つ目のブロックを使っているので「しない」にできません'); return; }
-      w.opts.branch = v; if (!v) w.opts.flag = false; markDirty(true);
-    })),
-    row('イベントフラグ', ...opt(w.opts.flag, [[true, '使う'], [false, '使わない']], v => {
-      if (v && !w.opts.branch) { toast('分岐「する」のときだけ使えます'); return; }
-      if (!v && usedCond) { toast('条件を使っているので「使わない」にできません'); return; }
-      w.opts.flag = v; markDirty(true);
-    })),
-    row('UIの色', h('div', { class: 'sw-row' }, UI_COLORS.map(c => h('button', { class: 'sw' + (w.theme.ui === c ? ' on' : ''), style: `background:${c}`, onclick: () => { w.theme.ui = c; markDirty(true); } })), colorInp(w.theme.ui, v => { w.theme.ui = v; markDirty(true); }))),
-    row('文字の色', h('div', { class: 'sw-row' }, TX_COLORS.map(c => h('button', { class: 'sw' + (w.theme.tx === c ? ' on' : ''), style: `background:${c}`, onclick: () => { w.theme.tx = c; markDirty(true); } })), colorInp(w.theme.tx, v => { w.theme.tx = v; markDirty(true); }))));
-  const pv = h('div', { class: 'wk-prev' },
-    w.opts.name ? h('div', { class: 'wk-pn' }, 'たろう') : null,
+  const L = h('div', { class: 'panel' }); L.style.cssText = 'left:16px;top:8px;width:620px;height:584px';
+  const ti = h('input', { class: 'inp sm', maxlength: 30, value: w.title, style: 'width:420px' }); ti.oninput = () => { w.title = ti.value; markDirty(); $('.g-work').textContent = '作品：' + (w.title || 'むだい'); };
+  const au = h('input', { class: 'inp sm', maxlength: 16, value: w.author, style: 'width:420px' }); au.oninput = () => { w.author = au.value; markDirty(); };
+  const bgs = [null, ...SAMPLE_BG.map(x => x.id), ...w.media.filter(m => m.kind === 'bg').map(m => m.id)], ti2 = Math.max(0, bgs.indexOf(w.titleImg));
+  const col = h('div', null,
+    h('div', { class: 'p-h' }, '作品のじょうほう'),
+    row('タイトル', ti), row('作者名', au),
+    row('改造', ...opt(w.editable, [[true, 'OK'], [false, 'だめ']], v => { w.editable = v; markDirty(true); })),
+    h('div', { class: 'p-h', style: 'margin-top:6px' }, 'しくみ'),
+    row('シナリオ', ...opt(w.opts.long, [[true, '長い'], [false, '1話完結', Object.keys(w.blocks).length > 1 ? 'ブロックが2つ以上あるので、1話完結にはできません' : null]], v => { w.opts.long = v; if (!v) { w.opts.branch = false; w.opts.flag = false; } markDirty(true); })),
+    row('分岐', ...opt(w.opts.branch, [[true, 'する', w.opts.long ? null : '1話完結では分岐できません'], [false, 'しない', usedBranch ? '選択肢・条件・2つ目のブロックを使っているので「しない」にできません' : null]], v => { w.opts.branch = v; if (!v) w.opts.flag = false; markDirty(true); })),
+    row('イベントフラグ', ...opt(w.opts.flag, [[true, '使う', w.opts.branch ? null : '分岐を「する」にすると使えます'], [false, '使わない', usedCond ? '条件を使っているので「使わない」にできません' : null]], v => { w.opts.flag = v; markDirty(true); })),
+    row('名前の欄', ...opt(w.opts.name, [[true, 'オン'], [false, 'オフ']], v => { w.opts.name = v; markDirty(true); })),
+    row('タイトル画面', ...opt(w.opts.title, [[true, 'つける'], [false, 'つけない']], v => { w.opts.title = v; markDirty(true); })),
+    row('タイトルの絵', btn('prev', null, () => { w.titleImg = bgs[(ti2 - 1 + bgs.length) % bgs.length]; markDirty(true); }, 'sm'),
+      h('div', { class: 'wk-val' }, w.titleImg ? mediaName(w, w.titleImg) : 'なし'),
+      btn('next', null, () => { w.titleImg = bgs[(ti2 + 1) % bgs.length]; markDirty(true); }, 'sm')),
+    row('画面の形', ...opt(w.ratio, [['16:9', '16:9'], ['4:3', '4:3']], v => { w.ratio = v; markDirty(true); })));
+  $$('.wk-row .btn', col).forEach(b => { if (!b.textContent) b.style.width = '50px'; });
+  pin(L, col, 14, 10, 590, 560);
+  body.appendChild(L);
+  const R1 = h('div', { class: 'panel' }); R1.style.cssText = 'left:648px;top:8px;width:616px;height:300px';
+  const sw = (cur, list, on) => h('div', { class: 'sw-row' }, list.map(c => h('button', { class: 'sw' + (cur === c ? ' on' : ''), style: `background:${c}`, onclick: () => on(c) })), colorInp(cur, on));
+  pin(R1, h('div', { class: 'p-h' }, '見た目'), 14, 10, 580, 32);
+  pin(R1, row('UIの色', sw(w.theme.ui, UI_COLORS, v => { w.theme.ui = v; markDirty(true); })), 14, 44, 580, 50);
+  pin(R1, row('文字の色', sw(w.theme.tx, TX_COLORS, v => { w.theme.tx = v; markDirty(true); })), 14, 94, 580, 50);
+  const pv = h('div', { class: 'wk-prev' }, w.opts.name ? h('div', { class: 'wk-pn' }, 'たろう') : null,
     h('div', { class: 'wk-pw' }, 'これは見本の文章です。', h('br'), '色を変えると、ここに反映されます。'));
   themeVars(pv, w.theme);
-  R.append(h('div', { class: 'wk-row' }, h('div', { class: 'wk-l' }, '見本'), pv));
-  body.appendChild(pos(L, 20, 96, 620, 600));
-  body.appendChild(pos(R, 660, 96, 600, 600));
+  pin(R1, pv, 164, 148, 420, 140);
+  pin(R1, h('div', { class: 'wk-l' }, '見本'), 14, 200, 140, 30);
+  body.appendChild(R1);
+  const R2 = h('div', { class: 'panel focus' }); R2.style.cssText = 'left:648px;top:318px;width:616px;height:274px';
+  if (!E.chk) E.chk = analyze(w);
+  pin(R2, h('div', { class: 'p-h' }, h('span', { class: 'n' }, ic('down', 18)), '友だちに送る'), 14, 10, 580, 32);
+  pin(R2, h('div', { class: 'bp-iss' + (E.chk.count ? ' bad' : '') }, ic(E.chk.count ? 'warn' : 'check'),
+    E.chk.count ? `まだ問題が ${E.chk.count} こあります（送ることはできます）` : 'お話のつながりに問題はありません'), 14, 50, 420, 28);
+  if (E.chk.count && w.opts.long) pin(R2, btn('map', 'マップで見る', () => goStep('map'), 'xs'), 450, 46, 140, 34);
+  pin(R2, h('div', { class: 'hint' }, '書き出したファイル（.json）をTeamsで送ります。もらった人は、タイトル画面の「もらった作品を読みこむ」で開けます。'), 14, 88, 580, 54);
+  pin(R2, btn('down', '作品ファイルを書き出す', async () => { await flushSave(); exportWork(w); }, 'pri big'), 108, 156, 400, 64);
+  pin(R2, h('div', { class: 'hint', style: 'text-align:center' }, 'サンプルの絵と内蔵の音は、ファイルに入れなくても相手のアプリで出ます'), 14, 228, 580, 30);
+  body.appendChild(R2);
 }
 function colorInp(val, on) {
   const i = h('input', { type: 'color', class: 'cpick', value: val, title: '自由に色をえらぶ' });
@@ -584,6 +710,6 @@ function colorInp(val, on) {
 document.addEventListener('drop', e => {
   if (!$('#scr-edit').classList.contains('show') || !e.dataTransfer || !e.dataTransfer.files.length) return;
   const fs = [...e.dataTransfer.files];
-  const kind = E.tab === 'fx' ? E.libKind : E.tab === 'media' ? E.medKind : (/^audio\//.test(fs[0].type) ? 'se' : 'bg');
+  const kind = E.tab === 'fx' ? E.libKind : (/^audio\//.test(fs[0].type) ? 'se' : 'bg');
   addMediaFiles(fs, kind);
 });

@@ -39,7 +39,7 @@ function newWork(o) {
   const w = {
     app: APP_ID, ver: FILE_VER, id: uid(), title: o.title || 'むだい', author: o.author || '', editable: true,
     ratio: o.ratio || '16:9', opts: { title: !!o.title_, long: !!o.long, branch: !!o.branch, flag: !!o.flag, name: false },
-    theme: clone(DEF_THEME), titleImg: null, blocks: {}, media: [], created: Date.now(), updated: Date.now()
+    theme: clone(DEF_THEME), titleImg: null, blocks: {}, media: [], folders: { bg: [], ch: [], se: [], bgm: [] }, created: Date.now(), updated: Date.now()
   };
   const b = newBlock(1, 0); w.blocks[b.id] = b;
   return w;
@@ -57,6 +57,21 @@ function blockLabel(w, b) {
 const CHOICE_ABC = ['A', 'B', 'C'];
 function maxEp(w) { return Math.max(1, ...Object.values(w.blocks).map(b => b.ep)); }
 /* 素材 */
+const SAMPLE_MAP = {};
+for (const x of [...SAMPLE_BG, ...SAMPLE_CH]) SAMPLE_MAP[x.id] = x;
+function mediaSrc(id) { return id ? (SAMPLE_MAP[id] ? SAMPLE_MAP[id].data : MEDIA[id]) : null; }
+function mediaName(w, id) {
+  if (!id) return '';
+  if (id === 'none') return 'なし';
+  if (SAMPLE_MAP[id]) return SAMPLE_MAP[id].name;
+  if (id === 'stop' || SE_MAP[id] || BGM_MAP[id]) return soundName(w, id);
+  const m = w && w.media.find(x => x.id === id); return m ? m.name : '（消えた素材）';
+}
+function fixWork(w) {
+  w.folders = w.folders || {}; for (const k of ['bg', 'ch', 'se', 'bgm']) w.folders[k] = w.folders[k] || [];
+  for (const m of w.media) if (m.folder == null) m.folder = '';
+  return w;
+}
 const MEDIA = {}; // id -> dataURL（いま開いている作品の分）
 async function loadMediaFor(w) {
   for (const k in MEDIA) delete MEDIA[k];
@@ -107,7 +122,7 @@ async function importFile(file) {
       }
     }
   }
-  w.recv = true;
+  w.recv = true; fixWork(w);
   for (const m of w.media) if (media[m.id]) await dbPut('media', { id: m.id, wid: w.id, data: media[m.id] });
   await dbPut('works', w);
   toast('「' + w.title + '」を読みこみました');

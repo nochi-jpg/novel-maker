@@ -15,6 +15,7 @@ const stageWOf = w => w.ratio === '4:3' ? 960 : 1280;
 async function playWork(w, opts = {}) {
   auInit(); stopBGM();
   Object.assign(P, { w, b: null, pages: [], pi: 0, entry: emptyVis(), hist: [], auto: false, skip: false, hidden: false, test: !!opts.test, onBack: opts.onBack, panel: null });
+  fixWork(w);
   if (opts.loadMedia !== false) await loadMediaFor(w);
   const rd = await dbGet('saves', w.id + ':read'); P.read = new Set(rd || []);
   setStageW(stageWOf(w));
@@ -81,7 +82,7 @@ function setStageW(W) { STAGE.w = W; fitStage(); }
 async function showWorkTitle() {
   stopBGM(); clearPanel();
   const w = P.w, bm = await dbGet('saves', w.id + ':bm');
-  const img = w.titleImg && MEDIA[w.titleImg];
+  const img = mediaSrc(w.titleImg);
   const p = h('div', { class: 'ppanel ptitle' },
     img ? h('img', { class: 'ptitle-img', src: img }) : null,
     h('div', { class: 'ptitle-box' },
@@ -124,10 +125,10 @@ function showPage(pi, instant) {
 }
 function renderVis(vis) {
   const fade = P.skip ? 80 : 420;
-  setLayer($('#lay-bg'), vis.bg, vis.bg && MEDIA[vis.bg], null, fade);
+  setLayer($('#lay-bg'), vis.bg, mediaSrc(vis.bg), null, fade);
   for (let s = 0; s < 3; s++) {
     const c = vis.ch[s];
-    setLayer($('#lay-c' + s), c && c.m, c && MEDIA[c.m], c, fade, s);
+    setLayer($('#lay-c' + s), c && c.m, c && mediaSrc(c.m), c, fade, s);
   }
 }
 const CH_X = [22, 50, 78];

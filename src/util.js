@@ -37,6 +37,22 @@ function fmtDate(t) {
 function btn(icon, label, onclick, cls = '') {
   return h('button', { class: 'btn ' + cls, onclick }, icon ? ic(icon) : null, label ? h('span', null, label) : null);
 }
+/* 今は使えないボタン（押すと理由を出す） */
+function btnOff(icon, label, reason, cls = '') {
+  return h('button', { class: 'btn off ' + cls, onclick: e => { e.stopPropagation(); (typeof guide === 'function' && $('#scr-edit.show') ? guide(reason, true) : toast(reason)); } },
+    icon ? ic(icon) : null, label ? h('span', null, label) : null);
+}
+/* 文字を入れてもらう */
+function askText(msg, def = '', max = 16) {
+  return new Promise(res => {
+    let m; const inp = h('input', { class: 'inp', maxlength: max, value: def });
+    const done = v => { closeModal(m); res(v); };
+    inp.onkeydown = e => { if (e.key === 'Enter') done(inp.value.trim()); };
+    m = openModal(h('div', { class: 'dlg dlg-ask' }, h('div', { class: 'dlg-msg' }, msg), inp,
+      h('div', { class: 'dlg-btns' }, btn('check', 'OK', () => done(inp.value.trim()), 'pri'), btn('x', 'やめる', () => done(null)))));
+    setTimeout(() => inp.focus(), 30);
+  });
+}
 /* トースト */
 let toastTimer = 0;
 function toast(msg, ms = 2400) {

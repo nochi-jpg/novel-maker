@@ -86,6 +86,63 @@ const SE_LIST = [
   ['tokei', '時計', (d, t) => { for (let i = 0; i < 6; i++) noise(d, t + i * 0.5, 0.04, { ft: 'highpass', f: (i % 2 ? 3000 : 4200), vol: 0.5 }); }],
   ['denwa', '電話', (d, t) => { for (let r = 0; r < 2; r++) for (let i = 0; i < 16; i++) tone(d, t + r * 1.4 + i * 0.05, i % 2 ? 1000 : 800, 0.05, { type: 'square', vol: 0.07, a: 0.002, r: 0.01 }); }]
 ];
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+SE_LIST.push(
+  ['cursor', 'カーソル', (d, t) => { tone(d, t, 1760, 0.05, { type: 'square', vol: 0.08 }); }],
+  ['page', 'ページめくり', (d, t) => { noise(d, t, 0.28, { ft: 'bandpass', f: 3200, fto: 1200, q: 1.2, vol: 0.3, a: 0.04 }); }],
+  ['beep', 'ピピッ', (d, t) => { tone(d, t, 2000, 0.07, { type: 'square', vol: 0.08 }); tone(d, t + 0.11, 2000, 0.07, { type: 'square', vol: 0.08 }); }],
+  ['tsuuchi', '通知音', (d, t) => { tone(d, t, 1319, 0.14, { vol: 0.25 }); tone(d, t + 0.13, 1760, 0.35, { vol: 0.25, rev: 0.3 }); }],
+  ['camera', 'カメラ', (d, t) => { noise(d, t, 0.05, { ft: 'highpass', f: 2500, vol: 0.6 }); noise(d, t + 0.09, 0.09, { ft: 'bandpass', f: 1500, vol: 0.4 }); }],
+  ['kotsu', 'コツン', (d, t) => { tone(d, t, 900, 0.08, { type: 'triangle', to: 600, vol: 0.5 }); noise(d, t, 0.03, { ft: 'highpass', f: 3000, vol: 0.3 }); }],
+  ['gaan', 'ガーン', (d, t) => { ['C4', 'F#4', 'C5', 'F#5'].forEach(n => tone(d, t, nf(n), 1.6, { type: 'sawtooth', vol: 0.07, lp: 1600, rev: 0.4 })); tone(d, t, 90, 1.2, { to: 40, vol: 0.5 }); }],
+  ['doki', 'ドキッ', (d, t) => { tone(d, t, 70, 0.2, { to: 45, vol: 0.9 }); tone(d, t, 1200, 0.12, { vol: 0.12 }); }],
+  ['hatena', 'はてな', (d, t) => { tone(d, t, 600, 0.18, { to: 1000, vol: 0.25 }); tone(d, t + 0.24, 1000, 0.3, { to: 1500, vol: 0.25, rev: 0.3 }); }],
+  ['kyupiin', 'キュピーン', (d, t) => { tone(d, t, 1800, 0.35, { to: 4200, vol: 0.18, rev: 0.4 }); ['C7', 'G7'].forEach((n, i) => tone(d, t + 0.2 + i * 0.08, nf(n), 0.5, { vol: 0.08, rev: 0.6 })); }],
+  ['zukoo', 'ズコー', (d, t) => { tone(d, t, 700, 0.6, { type: 'sawtooth', to: 80, vol: 0.12, lp: 2000 }); tone(d, t + 0.62, 120, 0.2, { to: 50, vol: 0.7 }); noise(d, t + 0.62, 0.15, { f: 600, vol: 0.4 }); }],
+  ['shonbori', 'しょんぼり', (d, t) => { ['G4', 'F#4', 'F4', 'E4'].forEach((n, i) => tone(d, t + i * 0.32, nf(n), i === 3 ? 0.9 : 0.3, { type: 'triangle', vol: 0.3, vib: i === 3 })); }],
+  ['wakuwaku', 'わくわく', (d, t) => { for (let k = 0; k < 2; k++) ['C5', 'E5', 'G5', 'C6', 'E6', 'G6'].forEach((n, i) => tone(d, t + k * 0.45 + i * 0.06, nf(n), 0.12, { type: 'square', vol: 0.07 })); }],
+  ['taiko', '太鼓', (d, t) => { for (const k of [0, 0.35]) { tone(d, t + k, 110, 0.5, { to: 55, vol: 0.9 }); noise(d, t + k, 0.25, { f: 300, vol: 0.4 }); } }],
+  ['whistle', '笛', (d, t) => { tone(d, t, 2400, 0.9, { vol: 0.15, vib: 1, a: 0.02 }); noise(d, t, 0.9, { ft: 'bandpass', f: 2400, q: 4, vol: 0.05 }); }],
+  ['gong', 'どら', (d, t) => { [110, 163, 247, 311, 432].forEach((f, i) => tone(d, t, f, 3.5, { vol: 0.22 / (i + 1), a: 0.01, r: 3, rev: 0.5 })); noise(d, t, 0.4, { f: 1200, vol: 0.2 }); }],
+  ['kane', 'お寺の鐘', (d, t) => { [[98, 0.35], [99.4, 0.3], [196.6, 0.15], [266, 0.1], [402, 0.06]].forEach(([f, v]) => tone(d, t, f, 5, { vol: v, a: 0.01, r: 4.5, rev: 0.5 })); }],
+  ['suzu', '鈴', (d, t) => { for (let i = 0; i < 7; i++) { const k = t + i * 0.07 + rnd(0, 0.03); tone(d, k, rnd(4000, 4600), 0.25, { vol: 0.07, rev: 0.4 }); noise(d, k, 0.05, { ft: 'bandpass', f: 6000, q: 6, vol: 0.2 }); } }],
+  ['bell', 'ベル', (d, t) => { tone(d, t, 2093, 1.3, { vol: 0.2, rev: 0.5 }); tone(d, t, 5240, 0.6, { vol: 0.05 }); }],
+  ['hakushu', '拍手', (d, t) => { for (let i = 0; i < 60; i++) noise(d, t + rnd(0, 2.4), 0.04, { ft: 'bandpass', f: rnd(900, 2200), q: 1.5, vol: rnd(0.1, 0.3) }); }],
+  ['pistol', 'スタートの合図', (d, t) => { noise(d, t, 0.35, { ft: 'highpass', f: 700, vol: 0.9, rev: 0.4 }); tone(d, t, 220, 0.2, { to: 60, vol: 0.5 }); }],
+  ['drumroll', 'ドラムロール', (d, t) => { for (let i = 0; i < 40; i++) noise(d, t + i * 0.05, 0.06, { ft: 'bandpass', f: 1800, vol: 0.08 + i * 0.006 }); noise(d, t + 2.05, 1.4, { ft: 'highpass', f: 3000, vol: 0.4, rev: 0.4 }); tone(d, t + 2.05, 150, 0.3, { to: 45, vol: 0.8 }); }],
+  ['doa', 'ドアがひらく', (d, t) => { tone(d, t, 140, 1.0, { type: 'sawtooth', to: 230, vol: 0.1, lp: 900, vib: 1 }); noise(d, t + 1.0, 0.08, { f: 900, vol: 0.4 }); }],
+  ['pen', 'えんぴつ', (d, t) => { for (let i = 0; i < 7; i++) noise(d, t + i * 0.13, 0.09, { ft: 'bandpass', f: rnd(3500, 5000), q: 3, vol: 0.25 }); }],
+  ['kami', '紙をまるめる', (d, t) => { for (let i = 0; i < 26; i++) noise(d, t + rnd(0, 1.1), 0.03, { ft: 'bandpass', f: rnd(1500, 4500), q: 2, vol: rnd(0.1, 0.35) }); }],
+  ['fumikiri', '踏切', (d, t) => { for (let i = 0; i < 8; i++) { const k = t + i * 0.45; tone(d, k, 750, 0.3, { type: 'triangle', vol: 0.25 }); tone(d, k, 1125, 0.3, { vol: 0.1 }); } }],
+  ['siren', '救急車', (d, t) => { for (let i = 0; i < 6; i++) tone(d, t + i * 0.6, i % 2 ? 770 : 960, 0.6, { type: 'triangle', vol: 0.2, a: 0.02, r: 0.05, sus: 1 }); }],
+  ['klaxon', 'クラクション', (d, t) => { for (const [k, du] of [[0, 0.18], [0.25, 0.5]]) [440, 554].forEach(f => tone(d, t + k, f, du, { type: 'sawtooth', vol: 0.08, lp: 2000, a: 0.01, r: 0.03 })); }],
+  ['mezamashi', '目ざまし', (d, t) => { for (let r = 0; r < 2; r++) for (let i = 0; i < 14; i++) tone(d, t + r * 1.1 + i * 0.06, 2100, 0.04, { type: 'square', vol: 0.06, a: 0.002, r: 0.01 }); }],
+  ['ame', '雨', (d, t) => { noise(d, t, 4, { f: 6000, vol: 0.22, a: 0.5, hold: 3.2 }); for (let i = 0; i < 40; i++) tone(d, t + rnd(0.2, 3.8), rnd(1800, 3200), 0.05, { to: 900, vol: 0.05 }); }],
+  ['nami', '波', (d, t) => { for (const k of [0, 2.2]) { const n = noise(d, t + k, 2.4, { f: 300, vol: 0.45, a: 1.0, hold: 1.2 }); n.fl.frequency.linearRampToValueAtTime(1600, t + k + 1.1); n.fl.frequency.linearRampToValueAtTime(400, t + k + 2.4); } }],
+  ['mushi', '虫の声', (d, t) => { for (let g = 0; g < 4; g++) for (let i = 0; i < 9; i++) tone(d, t + g * 0.8 + i * 0.045, 4200, 0.03, { vol: 0.08, a: 0.003, r: 0.01 }); }],
+  ['takibi', 'たき火', (d, t) => { noise(d, t, 3.5, { f: 900, vol: 0.15, a: 0.4, hold: 2.8 }); for (let i = 0; i < 30; i++) noise(d, t + rnd(0, 3.3), 0.02, { ft: 'highpass', f: rnd(2000, 5000), vol: rnd(0.2, 0.5) }); }],
+  ['kawa', '川', (d, t) => { noise(d, t, 3.6, { ft: 'bandpass', f: 1100, q: 0.6, vol: 0.3, a: 0.5, hold: 2.8 }); for (let i = 0; i < 25; i++) tone(d, t + rnd(0.2, 3.3), rnd(500, 1300), 0.06, { to: rnd(1400, 2200), vol: 0.05 }); }],
+  ['kaeru', 'カエル', (d, t) => { for (const k of [0, 0.3, 0.9, 1.2]) tone(d, t + k, 170, 0.14, { type: 'square', to: 130, vol: 0.1, lp: 900 }); }],
+  ['fukurou', 'フクロウ', (d, t) => { tone(d, t, 420, 0.45, { to: 380, vol: 0.25, rev: 0.5 }); tone(d, t + 0.75, 430, 0.7, { to: 370, vol: 0.25, rev: 0.5 }); }],
+  ['punch', 'パンチ', (d, t) => { noise(d, t, 0.16, { f: 1500, vol: 0.9 }); tone(d, t, 170, 0.16, { to: 50, vol: 0.7 }); }],
+  ['swing', '風を切る', (d, t) => { noise(d, t, 0.3, { ft: 'bandpass', f: 700, fto: 3200, q: 2, vol: 0.4, a: 0.08 }); }],
+  ['dash', 'ダッシュ', (d, t) => { noise(d, t, 0.55, { ft: 'bandpass', f: 1800, fto: 400, q: 1.5, vol: 0.4, a: 0.02 }); for (let i = 0; i < 4; i++) noise(d, t + i * 0.09, 0.05, { f: 600, vol: 0.3 }); }],
+  ['gachan', 'ガシャン', (d, t) => { noise(d, t, 0.5, { ft: 'highpass', f: 2000, vol: 0.6 }); for (let i = 0; i < 14; i++) tone(d, t + rnd(0.02, 0.7), rnd(2500, 6000), 0.15, { vol: 0.05 }); tone(d, t, 120, 0.15, { to: 60, vol: 0.4 }); }],
+  ['bon', 'けむり', (d, t) => { noise(d, t, 0.9, { f: 900, fto: 150, vol: 0.7, rev: 0.3 }); tone(d, t, 220, 0.3, { to: 70, vol: 0.4 }); }],
+  ['warp', 'ワープ', (d, t) => { tone(d, t, 300, 0.5, { to: 2400, vol: 0.15, vib: 1 }); tone(d, t + 0.5, 2400, 0.5, { to: 300, vol: 0.15, vib: 1, rev: 0.4 }); }],
+  ['beam', 'ビーム', (d, t) => { tone(d, t, 1600, 0.55, { type: 'square', to: 300, vol: 0.08, vib: 1 }); tone(d, t, 3200, 0.55, { type: 'sawtooth', to: 700, vol: 0.04, lp: 4000 }); }],
+  ['maho', 'まほう', (d, t) => { for (let i = 0; i < 14; i++) tone(d, t + i * 0.07, rnd(1500, 4000), 0.4, { vol: 0.07, rev: 0.7 }); noise(d, t, 1.0, { ft: 'highpass', f: 6000, vol: 0.08, a: 0.3 }); }]
+);
+const SE_CATS = [
+  ['システム', 'kettei cancel pon cursor page beep tsuuchi camera seikai fuseikai kotsu'],
+  ['気持ち', 'pikon bikkuri kirakira shinzou gaan doki hatena kyupiin zukoo shonbori wakuwaku'],
+  ['学校・合図', 'chime fanfare taiko whistle gong kane suzu bell hakushu pistol drumroll'],
+  ['生活', 'door ashioto tokei denwa doa pen kami fumikiri siren klaxon mezamashi'],
+  ['自然', 'kaminari kaze mizu tori ame nami mushi takibi kawa kaeru fukurou'],
+  ['アクション・ふしぎ', 'jump ochiru bakuhatsu punch swing dash gachan bon warp beam maho']
+].map(([n, ids]) => [n, ids.split(' ').map(x => 'S:' + x)]);
+
 const SE_MAP = Object.fromEntries(SE_LIST.map(s => ['S:' + s[0], s]));
 /* ---- BGM（シーケンサー） ---- */
 // lead: "音:長さ(16分)" をならべる。chords: 小節ごとのコード
@@ -109,6 +166,49 @@ const BGM_LIST = [
   { id: 'ending', name: 'エンディング', bpm: 76, lead: 'sine', leadLp: 3000, vib: 1, bass: 'long', pad: 0.08, arp: 0.04, arpWave: 'triangle', drum: '', chords: 'C G Am Em F C F G', rev: 0.6,
     mel: 'G5:6 E5:2 C5:8|D5:6 B4:2 G4:8|C5:4 E5:4 A5:8|G5:8 E5:8|F5:4 A5:4 C6:6 A5:2|G5:4 E5:4 C5:8|A5:4 G5:4 F5:4 A5:4|G5:12 -:4' }
 ];
+
+BGM_LIST.push(
+  { id: 'asa', name: '朝', bpm: 120, lead: 'square', leadLp: 3000, bass: 'walk', pad: 0.03, arp: 0.03, drum: 'k.h.s.h.k.h.s.h.', chords: 'C Em F G Am Em F G',
+    mel: 'G5:2 E5:2 C5:2 E5:2 G5:4 C6:4|B5:2 G5:2 E5:2 G5:2 B5:4 -:4|A5:2 F5:2 C5:2 F5:2 A5:4 C6:4|B5:4 D6:4 G5:8|C6:2 B5:2 A5:2 E5:2 C5:4 E5:4|G5:4 B5:4 E5:8|F5:2 A5:2 C6:2 A5:2 F5:4 A5:4|G5:4 F5:2 E5:2 D5:8' },
+  { id: 'gakkou', name: '学校', bpm: 128, lead: 'square', leadLp: 2600, bass: 'bounce', pad: 0, arp: 0, drum: 'k...s...k.k.s...', chords: 'F Bb C F F Bb C F',
+    mel: 'C5:4 F5:4 A5:4 F5:4|D5:4 F5:4 Bb5:8|C6:4 A5:4 G5:4 E5:4|F5:12 -:4|A5:2 A5:2 A5:4 G5:2 F5:2 G5:4|Bb5:4 A5:4 G5:4 D5:4|C5:4 E5:4 G5:4 Bb5:4|A5:4 C6:4 F5:8' },
+  { id: 'odekake', name: 'おでかけ', bpm: 136, lead: 'triangle', leadLp: 3200, bass: 'bounce', pad: 0, arp: 0.05, drum: 'k.h.s.hkk.h.s.h.', chords: 'G C D G Em C D G',
+    mel: 'D5:2 G5:2 B5:2 D6:2 B5:4 G5:4|E5:2 G5:2 C6:2 E6:2 C6:8|F#5:2 A5:2 D6:4 C6:2 B5:2 A5:4|G5:8 B4:4 D5:4|E5:2 G5:2 B5:4 A5:2 G5:2 E5:4|C5:4 E5:4 G5:4 C6:4|D6:2 C6:2 B5:2 A5:2 F#5:4 A5:4|G5:12 -:4' },
+  { id: 'omatsuri', name: 'おまつり', bpm: 140, lead: 'square', leadLp: 2400, bass: 'eighth', pad: 0, arp: 0, drum: 'k.k.s.k.k.k.s.k.', chords: 'D D G D D G A D',
+    mel: 'A5:4 B5:2 A5:2 F#5:4 E5:4|D5:4 E5:4 F#5:8|B5:4 A5:2 B5:2 D6:4 B5:4|A5:12 -:4|D6:2 D6:2 B5:4 A5:2 B5:2 A5:4|F#5:4 E5:4 D5:8|B4:4 D5:4 E5:4 A5:4|D5:12 -:4' },
+  { id: 'yasashii', name: 'やさしい', bpm: 84, lead: 'triangle', leadLp: 2600, vib: 1, bass: 'long', pad: 0.05, arp: 0.03, arpWave: 'sine', drum: '', chords: 'D A Bm G D A G A', rev: 0.45,
+    mel: 'F#5:6 E5:2 D5:8|E5:6 C#5:2 A4:8|D5:4 F#5:4 B5:6 A5:2|G5:8 D5:8|F#5:4 A5:4 D6:6 C#6:2|E5:4 A5:4 C#6:8|B5:4 G5:4 D5:4 B4:4|C#5:4 E5:4 A5:8' },
+  { id: 'yugata', name: '夕方', bpm: 76, lead: 'sine', leadLp: 3000, vib: 1, bass: 'long', pad: 0.07, arp: 0, drum: '', chords: 'Bb F Gm Eb Bb F Eb F', rev: 0.55,
+    mel: 'D5:6 C5:2 Bb4:8|C5:6 A4:2 F4:8|Bb4:4 D5:4 G5:8|G5:4 F5:4 Eb5:8|F5:6 D5:2 Bb5:8|A5:6 F5:2 C5:8|Eb5:4 G5:4 Bb5:4 G5:4|F5:12 -:4' },
+  { id: 'yoru', name: '夜', bpm: 66, lead: 'sine', leadLp: 3000, bass: 'long', pad: 0.05, arp: 0.05, arpWave: 'sine', drum: '', chords: 'Am Em F C Am Em F E', rev: 0.6,
+    mel: '-:4 E5:4 A5:8|G5:8 E5:8|F5:4 A5:4 C6:8|G5:12 -:4|E5:4 A5:4 B5:4 C6:4|B5:8 G5:8|A5:4 F5:4 C5:8|B4:12 -:4' },
+  { id: 'omoide', name: '思い出', bpm: 80, lead: 'triangle', leadLp: 3000, bass: 'long', pad: 0.05, arp: 0.05, arpWave: 'triangle', drum: '', chords: 'Fmaj7 Em7 Dm7 G Fmaj7 Em7 Dm7 C', rev: 0.5,
+    mel: 'A5:6 G5:2 E5:8|G5:6 E5:2 D5:8|F5:4 E5:4 D5:4 C5:4|D5:12 -:4|A5:4 C6:4 E6:8|D6:4 B5:4 G5:8|F5:4 A5:4 D6:4 C6:4|C6:12 -:4' },
+  { id: 'namida', name: 'なみだ', bpm: 64, lead: 'sine', leadLp: 2600, vib: 1, bass: 'long', pad: 0.08, arp: 0, drum: '', chords: 'Dm Bb F A Dm Bb Gm A', rev: 0.6,
+    mel: 'A5:6 G5:2 F5:4 E5:4|D5:8 F5:8|C5:6 D5:2 F5:4 A5:4|E5:12 -:4|F5:6 E5:2 D5:4 A4:4|Bb4:8 D5:8|G5:6 F5:2 E5:4 D5:4|C#5:12 -:4' },
+  { id: 'nazo', name: 'なぞ', bpm: 96, lead: 'sine', leadLp: 3000, bass: 'ost', pad: 0.03, arp: 0.05, arpWave: 'sine', drum: '....h.......h...', chords: 'Dm Dm Bb A Dm Dm Bb A', rev: 0.4,
+    mel: 'D5:2 F5:2 A5:2 G#5:2 A5:8|-:4 F5:2 E5:2 D5:8|Bb4:2 D5:2 F5:2 E5:2 D5:8|C#5:8 E5:8|D6:2 C6:2 A5:2 G#5:2 A5:8|-:4 F5:2 G5:2 A5:8|Bb5:4 A5:4 G5:4 F5:4|E5:12 -:4' },
+  { id: 'yume', name: '夢の中', bpm: 72, lead: 'sine', leadLp: 4000, vib: 1, bass: 'long', pad: 0.05, arp: 0.06, arpWave: 'sine', drum: '', chords: 'C D C D Ab Bb Ab Bb', rev: 0.7,
+    mel: 'E6:6 D6:2 C6:8|F#5:8 A#5:8|G#5:6 F#5:2 E5:8|D5:12 -:4|C6:4 D6:4 E6:8|F#6:8 E6:8|D6:4 C6:4 A#5:4 G#5:4|C6:12 -:4' },
+  { id: 'kowai', name: 'こわい', bpm: 70, lead: 'sawtooth', leadLp: 900, bass: 'long', pad: 0.06, arp: 0, drum: 'k...............', chords: 'Cm Cm Ab G Cm Cm Ab G', rev: 0.6,
+    mel: 'C5:8 Eb5:4 D5:4|C5:4 B4:4 C5:8|Ab4:8 C5:4 Eb5:4|D5:12 B4:4|G5:8 F#5:8|F5:4 Eb5:4 D5:8|C5:4 Eb5:4 Ab5:8|G5:12 -:4' },
+  { id: 'oikakekko', name: 'おいかけっこ', bpm: 172, lead: 'square', leadLp: 2800, bass: 'eighth', pad: 0, arp: 0, drum: 'k.hsk.hsk.hsk.hs', chords: 'Am F G E Am F G E',
+    mel: 'A5:2 E5:2 A5:2 B5:2 C6:2 B5:2 A5:2 E5:2|F5:2 A5:2 C6:2 A5:2 F5:4 A5:4|G5:2 B5:2 D6:2 B5:2 G5:4 D5:4|E5:2 G#5:2 B5:2 E6:2 D6:4 B5:4|A5:2 C6:2 E6:2 C6:2 A5:4 E5:4|F5:2 C6:2 A5:2 F5:2 C5:4 F5:4|G5:2 A5:2 B5:2 C6:2 D6:4 B5:4|E6:4 B5:4 G#5:4 E5:4' },
+  { id: 'boss', name: 'ボス戦', bpm: 168, lead: 'sawtooth', leadLp: 2600, bass: 'eighth', pad: 0.03, arp: 0.03, drum: 'k.hsk.hsk.ksk.ss', chords: 'Cm Cm Ab Bb Cm Cm Ab G',
+    mel: 'C5:2 C5:2 G5:2 C5:2 Eb5:2 G5:2 C6:4|Bb5:2 G5:2 Eb5:2 C5:2 G4:4 C5:4|Ab5:2 C6:2 Eb6:4 D6:2 C6:2 Ab5:4|Bb5:4 D6:4 F6:4 D6:4|G5:4 Eb6:4 D6:4 C6:4|Bb5:2 C6:2 D6:2 Eb6:2 G6:8|F6:4 Eb6:4 C6:4 Ab5:4|G5:4 B5:4 D6:4 G6:4' },
+  { id: 'shouri', name: '勝利', bpm: 130, lead: 'square', leadLp: 3200, bass: 'bounce', pad: 0.03, arp: 0, drum: 'k.h.s.h.k.h.s.h.', chords: 'C F G C C F G C',
+    mel: 'G5:2 G5:2 G5:2 C6:10|A5:2 A5:2 A5:2 F6:10|D6:4 E6:2 F6:2 G6:4 B5:4|C6:12 -:4|E6:4 D6:4 C6:4 G5:4|A5:4 C6:4 F6:8|G6:4 F6:4 D6:4 B5:4|C6:12 -:4' },
+  { id: 'komikaru', name: 'コミカル', bpm: 150, lead: 'square', leadLp: 2400, bass: 'bounce', pad: 0, arp: 0, drum: 'k..sk..sk..sk.s.', chords: 'Bb Gm Eb F Bb Gm Eb F',
+    mel: 'F5:1 -:1 D5:1 -:1 Bb4:2 -:2 F5:2 G5:2 F5:4|G5:1 -:1 Bb5:1 -:1 D6:2 -:2 Bb5:2 G5:2 D5:4|Eb5:2 G5:2 Bb5:2 G5:2 Eb5:4 -:4|F5:2 A5:2 C6:2 A5:2 F5:4 -:4|Bb5:1 -:1 Bb5:1 -:1 A5:2 G5:2 F5:4 D5:4|G5:2 Bb5:2 D6:4 C6:2 Bb5:2 G5:4|Eb5:4 G5:4 C6:4 Bb5:4|A5:2 C6:2 F6:4 -:8' }
+);
+const BGM_CATS = [
+  ['明るい', 'nichijou tanoshii asa gakkou odekake omatsuri'],
+  ['やさしい', 'honobono yasashii yugata omoide'],
+  ['かなしい・夜', 'kanashii yoru namida ending'],
+  ['ふしぎ・こわい', 'fushigi nazo yume kowai kinchou'],
+  ['バトル・イベント', 'battle oikakekko boss shouri komikaru']
+].map(([n, ids]) => [n, ids.split(' ').map(x => 'M:' + x)]);
+
 const BGM_MAP = Object.fromEntries(BGM_LIST.map(b => ['M:' + b.id, b]));
 function parseMel(s) {
   const ev = []; let pos = 0;
