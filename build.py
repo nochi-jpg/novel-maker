@@ -19,7 +19,7 @@ for c, n in CH:
         k = int(p.stem.split('_')[1])
         ch.append({'id': 'I:' + p.stem, 'c': c, 'name': n + '（' + POSE[k] + '）', 'pose': POSE[k], 'data': b64(p, 'image/webp')})
 samples = ('/*NM-SAMPLES{*/\nconst SAMPLE_BG=' + json.dumps(bg, ensure_ascii=False) + ';\nconst SAMPLE_CH=' + json.dumps(ch, ensure_ascii=False) +
-           ';\nconst SAMPLE_CHARS=' + json.dumps(chars, ensure_ascii=False) + ';\nconst LOGO_SRC=' + json.dumps(b64(root / 'assets/logo.png', 'image/png')) + ';\nconst SAMPLE_WORKS=[' + ','.join((root / 'assets/works' / f).read_text(encoding='utf-8') for f in ('sample1.json', 'sample2.json')) + '];\n/*}NM-SAMPLES*/\n')
+           ';\nconst SAMPLE_CHARS=' + json.dumps(chars, ensure_ascii=False) + ';\nconst LOGO_SRC=' + json.dumps(b64(root / 'assets/logo.png', 'image/png')) + ';\nconst SAMPLE_WORKS=[' + ','.join((root / 'assets/works' / f).read_text(encoding='utf-8') for f in ('sample1.json',)) + '];\n/*}NM-SAMPLES*/\n')
 html = (src / 'index.html').read_text(encoding='utf-8')
 import re
 css = (src / 'style.css').read_text(encoding='utf-8')
