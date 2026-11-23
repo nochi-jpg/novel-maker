@@ -3233,9 +3233,12 @@ function blockPanel() {
     let y = Y + e.rules.length * 56;
     if (e.rules.length < 3) { pin(p, btn('plus', '条件をふやす', () => { e.rules.push({ groups: [[]], to: null }); markDirty(true); editRule(b, e.rules.length - 1); }, 'xs'), X, y, W, 34); y += 42; }
     const need = !E.chk || E.chk.elseUsed[b.id] !== false;
-    const eb = targetBtn(e.else, id => { e.else = id; }, 152);
+    const has = !!(e.else && w.blocks[e.else]);
+    const eb = targetBtn(e.else, id => { e.else = id; }, has ? 112 : 152);
     if (!need && !e.else) { eb.querySelector('.tg-l').textContent = 'なくてOK'; eb.classList.add('okbtn'); eb.title = 'どのルートも条件のどれかに当てはまるので、行き先はなくても大丈夫です'; }
-    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb), X, y, W, 42);
+    const clr = has ? btn('x', null, () => { e.else = null; markDirty(true); guide(need ? '行き先を消しました（どれにも当てはまらないルートがあるので、問題として表示されます）' : '行き先を消しました'); }, 'sm dng') : null;
+    if (clr) { clr.style.width = '32px'; clr.style.padding = '0'; clr.title = '行き先を消す'; }
+    pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'bp-k wide' }, 'どれにも当てはまらない'), eb, clr), X, y, W, 42);
   }
   if (e.type === 'end') {
     const inp = h('input', { class: 'inp sm', maxlength: 16, value: e.name, placeholder: '例：グッドエンド（なくてもOK）' });
