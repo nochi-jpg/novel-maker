@@ -389,7 +389,8 @@ function shiftCues(b, oldT, newT) {
 }
 /* ---------- 素材ライブラリ（フォルダ） ---------- */
 const EF_FOLDERS = { '@once': '一回だけ', '@tone': '色合い（続く）', '@weather': '天気（続く）' };
-const PATH_NAME = k => EF_FOLDERS[k] ? EF_FOLDERS[k] : k === '@sample' ? 'サンプルデータ' : k === '@builtin' ? '内蔵の音' : k.startsWith('@c:') ? (SAMPLE_CHARS.find(c => c.c === k.slice(3)) || {}).name
+const BG_GENRES = ['学校', '家', '街中', '自然', '空', 'ファンタジー', '単色'];
+const PATH_NAME = k => k.startsWith('@g:') ? k.slice(3) : EF_FOLDERS[k] ? EF_FOLDERS[k] : k === '@sample' ? 'サンプルデータ' : k === '@builtin' ? '内蔵の音' : k.startsWith('@c:') ? (SAMPLE_CHARS.find(c => c.c === k.slice(3)) || {}).name
   : k.startsWith('@cat:') ? ((E.libKind === 'se' ? SE_CATS : BGM_CATS)[+k.slice(5)] || [])[0] : k;
 function libEntries(kind, path) {
   const w = E.w, user = w.media.filter(m => m.kind === kind);
@@ -412,7 +413,8 @@ function libEntries(kind, path) {
     return out;
   }
   const [k0, k1] = path;
-  if (k0 === '@sample' && kind === 'bg') return SAMPLE_BG.map(x => item(x.id, x.name, x.data, 'サンプル'));
+  if (k0 === '@sample' && kind === 'bg' && !k1) return BG_GENRES.filter(g => SAMPLE_BG.some(x => x.g === g)).map(g => { const f = SAMPLE_BG.filter(x => x.g === g); return folder('@g:' + g, g, f.length, f[0].data); });
+  if (k0 === '@sample' && kind === 'bg') return SAMPLE_BG.filter(x => x.g === k1.slice(3)).map(x => item(x.id, x.name, x.data, 'サンプル'));
   if (k0 === '@sample' && kind === 'ch' && !k1) return SAMPLE_CHARS.map(c => { const f = SAMPLE_CH.filter(x => x.c === c.c); return folder('@c:' + c.c, c.name, f.length, f[0].data); });
   if (k0 === '@sample' && kind === 'ch') return SAMPLE_CH.filter(x => x.c === k1.slice(3)).map(x => item(x.id, x.pose, x.data, 'サンプル'));
   if (k0 === '@builtin' && !k1) return (kind === 'se' ? SE_CATS : BGM_CATS).map(([n, ids], i) => folder('@cat:' + i, n, ids.length));

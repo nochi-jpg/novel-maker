@@ -24,7 +24,8 @@ function gotoTitle() {
       btn('load', 'もらった作品を読みこむ', () => importDialog(), 'big')),
     btn('cap', 'チュートリアル', () => gotoTutorial(), 'big tt-tut'),
     btn('gear', '設定', () => openSettings(), 'tr'),
-    h('div', { class: 'tt-ver' }, 'きょういく版 v0.2'));
+    h('div', { class: 'tt-author' }, '作者　K.nom'),
+    h('div', { class: 'tt-ver' }, 'きょういく版 ver1.0'));
   showScreen('title');
 }
 async function importDialog() {
