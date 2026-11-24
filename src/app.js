@@ -1,11 +1,46 @@
 /* ===== 画面の切りかえ・タイトル・作品えらび・設定 ===== */
 const STAGE = { w: 1280 };
 const APP = { key: null, mode: 'view', page: 0 };
+const COARSE = matchMedia('(pointer:coarse)').matches;
+let FIT_LAST = { w: 0, h: 0 };
 function fitStage() {
   const st = $('#stage'), W = STAGE.w, H = 720;
-  const s = Math.min(innerWidth / W, innerHeight / H);
+  const vw = innerWidth, vh = innerHeight;
+  // スマホでキーボードが出たとき（横幅そのままで高さだけ縮む）は、大きさを変えない
+  const typing = COARSE && document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea');
+  if (typing && vw === FIT_LAST.w && vh < FIT_LAST.h) return;
+  FIT_LAST = { w: vw, h: vh };
+  // カメラの穴・ノッチの分をよける
+  const cs = getComputedStyle($('#sa')), px = k => parseFloat(cs[k]) || 0;
+  const L = px('paddingLeft'), R = px('paddingRight'), T = px('paddingTop'), B = px('paddingBottom');
+  const aw = Math.max(1, vw - L - R), ah = Math.max(1, vh - T - B);
+  const s = Math.min(aw / W, ah / H);
   st.style.width = W + 'px';
-  st.style.transform = `translate(${(innerWidth - W * s) / 2}px,${(innerHeight - H * s) / 2}px) scale(${s})`;
+  st.style.transform = `translate(${L + (aw - W * s) / 2}px,${T + (ah - H * s) / 2}px) scale(${s})`;
+}
+/* 全画面（アドレスバーを消す。Androidでは横向きに固定） */
+const FS_OK = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+async function toggleFull(on = !isFull()) {
+  try {
+    if (on) {
+      const el = document.documentElement;
+      await (el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen());
+      try { await screen.orientation.lock('landscape'); } catch (e) {}
+    } else {
+      try { screen.orientation.unlock(); } catch (e) {}
+      await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen());
+    }
+  } catch (e) { toast('全画面にできませんでした'); }
+}
+function fullBtn() {
+  const b = btn(isFull() ? 'shrink' : 'expand', '全画面', () => toggleFull(), 'tr2 fs-btn' + (isFull() ? ' on' : ''));
+  return b;
+}
+function syncFull() {
+  $$('.fs-btn').forEach(b => { b.classList.toggle('on', isFull()); const i = b.querySelector('.ic'); if (i) i.replaceWith(ic(isFull() ? 'shrink' : 'expand')); });
+  if ($('.dlg-set')) $('.dlg-set').dispatchEvent(new Event('fsync'));
+  setTimeout(fitStage, 60);
 }
 function showScreen(name) {
   $$('.screen').forEach(s => s.classList.toggle('show', s.id === 'scr-' + name));
@@ -23,6 +58,7 @@ function gotoTitle() {
       btn('text', '作る', () => gotoSelect('make'), 'big pri'),
       btn('load', 'もらった作品を読みこむ', () => importDialog(), 'big')),
     btn('cap', 'チュートリアル', () => gotoTutorial(), 'big tt-tut'),
+    FS_OK ? fullBtn() : null,
     btn('gear', '設定', () => openSettings(), 'tr'),
     h('div', { class: 'tt-author' }, '作者　K.nom'),
     h('div', { class: 'tt-ver' }, 'きょういく版 ver1.0'));
@@ -165,6 +201,8 @@ function openSettings() {
       body.appendChild(h('div', { class: 'set-row' }, h('div', { class: 'set-l' }, d.label),
         d.names.map((n, i) => btn(SET[k] === i ? 'check' : null, n, () => { SET[k] = i; saveSet(); auVol(); draw(); settingsChanged(k); }, SET[k] === i ? 'on' : ''))));
     }
+    if (tab === 0 && FS_OK) body.appendChild(h('div', { class: 'set-row' }, h('div', { class: 'set-l' }, '画面'),
+      [['ふつう', false], ['全画面', true]].map(([n, v]) => btn(isFull() === v ? 'check' : null, n, () => toggleFull(v), isFull() === v ? 'on' : ''))));
     if (tab === 1) {
       const cur = curOpenWork();
       if (!IS_VIEW) body.appendChild(h('div', { class: 'set-row set-data' },
@@ -179,7 +217,7 @@ function openSettings() {
     }
   }
   draw();
-  m = openModal(h('div', { class: 'dlg dlg-set' }, h('div', { class: 'dlg-title' }, '設定'), tabs, body,
+  m = openModal(h('div', { class: 'dlg dlg-set', onfsync: () => draw() }, h('div', { class: 'dlg-title' }, '設定'), tabs, body,
     h('div', { class: 'dlg-btns' }, btn('x', 'とじる', () => closeModal(m)))), { close: true });
 }
 function curOpenWork() {
@@ -196,6 +234,12 @@ function settingsChanged(k) {
 }
 /* ---- 起動 ---- */
 window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', () => setTimeout(fitStage, 200));
+if (window.visualViewport) visualViewport.addEventListener('resize', fitStage);
+document.addEventListener('fullscreenchange', syncFull);
+document.addEventListener('webkitfullscreenchange', syncFull);
+document.addEventListener('focusout', () => setTimeout(fitStage, 300));
+$('#rotate .rot-ic').appendChild(ic('rotate'));
 window.addEventListener('keydown', e => {
   if (e.target.matches && e.target.matches('input,textarea,select')) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') { const ms = $$('.modal'); if (ms.length) { ms[ms.length - 1].remove(); return; } }
