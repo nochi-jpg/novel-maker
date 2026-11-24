@@ -131,16 +131,18 @@ async function exportViewer(w) {
   toast('「' + name + '」を書き出しました（' + (html.length / 1048576).toFixed(1) + 'MB）');
 }
 /* アプリに入っているサンプル作品：はじめて起動したときに入れる（設定から入れなおせる） */
-const SAMPLE_VER = 1;
+const SAMPLE_VER = 2;
 async function installSamples(force) {
-  if (!force && (await dbGet('saves', 'app:samples')) >= SAMPLE_VER) return 0;
+  const had = (await dbGet('saves', 'app:samples')) || 0;
+  if (!force && had >= SAMPLE_VER) return 0;
   let n = 0;
   for (const o of SAMPLE_WORKS) {
     const w = clone(o.work);
     const old = await dbGet('works', w.id);
-    if (old && !force) continue;
+    // 新しい版のサンプルが入ったとき：さわっていない古いサンプルだけ入れかえる（改造したものは残す）
+    if (old && !force && !(had < SAMPLE_VER && (!old.sampleAt || old.sampleAt === old.updated))) continue;
     if (old) await deleteWork(old);
-    fixWork(w); w.editable = true; w.updated = Date.now();
+    fixWork(w); w.editable = true; w.updated = Date.now(); w.sampleAt = w.updated;
     for (const id in o.media) await dbPut('media', { id, wid: w.id, data: o.media[id] });
     await dbPut('works', w); n++;
   }
