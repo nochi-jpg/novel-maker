@@ -143,7 +143,7 @@ function titleDom(w, buttons) {
   const side = t.bpos === 'right' ? 'left' : t.bpos === 'left' ? 'right' : 'center';
   if (t.showT || (t.showA && w.author)) {
     const box = h('div', { class: `ptitle-box tp-${t.tpos} side-${side}` },
-      t.showT ? h('div', { class: 'ptitle-t' }, w.title) : null,
+      t.showT ? h('div', { class: 'ptitle-t', style: `font-size:${Math.max(30, Math.min(56, Math.floor((W - 170) / Math.max(1, [...w.title].length))))}px` }, w.title) : null,
       t.showA && w.author ? h('div', { class: 'ptitle-a' }, 'さく：' + w.author) : null);
     p.appendChild(box);
   }
@@ -317,11 +317,12 @@ function showChoices() {
     // サウンドノベル型：本文の続きに、ふつうの文字で選択肢をならべる
     const box = $('#ptext'), m = novelMetrics(stageWOf(P.w));
     const used = box.querySelectorAll('.prow').length;
-    if (used + chs.length + 1 > m.rows) box.innerHTML = '';
+    const fam = fontOf(P.w), parts = chs.map((c, i) => wrapLine(c.label || ('選択肢' + CHOICE_ABC[i]), m.inner - m.fs * 1.3, m.fs, fam));
+    if (used + parts.reduce((a, p) => a + p.length, 0) + 1 > m.rows) box.innerHTML = '';
     box.appendChild(h('div', { class: 'prow nspace' }));
     P.chSel = 0;
     chs.forEach((c, i) => {
-      const d = h('div', { class: 'prow nchoice', onclick: e => { e.stopPropagation(); chooseNovel(i); } }, h('span', { class: 'nmark' }, '▶'), c.label || ('選択肢' + CHOICE_ABC[i]));
+      const d = h('div', { class: 'prow nchoice', style: `height:${parts[i].length * 1.55}em`, onclick: e => { e.stopPropagation(); chooseNovel(i); } }, h('span', { class: 'nmark' }, '▶'), ...parts[i].flatMap((t, k) => k ? [h('br'), t] : [t]));
       d.onmouseenter = () => { P.chSel = i; markNChoice(); };
       box.appendChild(d);
     });

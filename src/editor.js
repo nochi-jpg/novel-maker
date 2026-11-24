@@ -250,7 +250,7 @@ function blockPanel() {
     $$('.btn', cnt).forEach(x => x.style.width = '124px');
     pin(p, cnt, X, Y, W, 42);
     e.choices.forEach((c, i) => {
-      const inp = h('input', { class: 'inp sm', maxlength: 24, value: c.label, placeholder: '選択肢' + CHOICE_ABC[i] + 'の文字' });
+      const inp = h('input', { class: 'inp sm', maxlength: 40, value: c.label, placeholder: '選択肢' + CHOICE_ABC[i] + 'の文字' });
       inp.oninput = () => { c.label = inp.value; markDirty(); };
       pin(p, h('div', { class: 'bp-line' }, h('div', { class: 'abc c' + i }, CHOICE_ABC[i]), inp, targetBtn(c.to, id => { c.to = id; }, 112)), X, Y + 50 + i * 50, W, 42);
     });

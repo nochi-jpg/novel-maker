@@ -123,7 +123,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#cfd8ec;font-family:va
 .pbar .btn.narrow .ic{width:18px;height:18px}
 .hid .pwin,.hid .pname,.hid .pmark,.hid .pbar,.hid .pchoices{display:none!important}
 .pchoices{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none}
-.pchoices .btn.pch{pointer-events:auto;width:70%;height:64px;font-size:24px;font-family:var(--pfont,var(--ftx));border-width:3px}
+.pchoices .btn.pch{pointer-events:auto;width:70%;height:auto;min-height:64px;padding:8px 28px;white-space:normal;line-height:1.3;text-align:center;font-size:24px;font-family:var(--pfont,var(--ftx));border-width:3px}
 .ppanel{position:absolute;inset:0;z-index:50;cursor:default}
 .pend{background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
 .pend .dlg{min-width:640px;text-align:center;background:var(--wui);border-color:var(--wui-l);color:var(--wtx)}
